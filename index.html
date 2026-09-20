@@ -870,6 +870,42 @@ const FORMULAS = [
         CTX.lineWidth = 2.6; CTX.strokeStyle = col(0.85); CTX.stroke();
       });
   }},
+  { name: 'tendrile Aderrasi — panglici care se răsucesc', rest: 0.50, full: true, draw(t) {
+      // Copiat din „Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils".
+      // Ce-i dă aspectul nu e forma, ci PERSISTENȚA: decay 0.95 și un cadru care
+      // aproape nu se mișcă (zoom 0.9995), deci unda își pictează singură panglici
+      // pe măsură ce se rotește. Aici zoom-ul e ușor peste 1, nu sub: în preset
+      // cadrul se strânge spre centru, iar acolo stă mouse-ul.
+      tunnelLayer({ DECAY: 0.958, ZOOM: 1.005, TWIST: 0.0085 }, () => {
+        const S = Math.min(innerWidth, innerHeight);
+        const r0 = S * 0.20;
+        // culorile presetului: trei sinusoide lente, aproape de aceeași frecvență,
+        // deci nuanța alunecă încet prin turcoaz-albastru-verde
+        const ch = (base, f) => Math.round(255 * Math.max(0, Math.min(1, base + 0.5 * Math.sin(f * t))));
+        const col = a => `rgba(${ch(0.45, 1.13)},${ch(0.65, 1.23)},${ch(0.70, 1.33)},${a})`;
+        const N = 460;
+        CTX.beginPath();
+        for (let k = 0; k <= N; k++) {
+          const u = k / N, th = u * Math.PI * 2 + t * 0.075;
+          const seam = Math.max(0, (u - 0.9) / 0.1);
+          const amp = vs(u) * (1 - seam) + vs(0) * seam;
+          // wave_scale 1.29 în preset: unda e mare, de aia panglicile ies lungi
+          // lobii trebuie să RĂTĂCEASCĂ, nu doar să pulseze: altfel fiecare cadru
+          // redesenează același inel și nu se depune nicio panglică
+          const wav = 1 + 0.20 * Math.sin(2 * th + t * 0.47)
+                        + 0.12 * Math.sin(3 * th - t * 0.31 + Math.sin(t * 0.17) * 2)
+                        + 0.07 * Math.sin(7 * th + t * 0.23);
+          const rr = r0 * wav * (1 + 1.10 * amp);
+          const x = Math.cos(th) * rr, y = Math.sin(th) * rr;
+          k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
+        }
+        CTX.closePath();
+        CTX.lineJoin = CTX.lineCap = 'round';
+        CTX.lineWidth = 22; CTX.strokeStyle = col(0.030); CTX.stroke();
+        CTX.lineWidth = 7;  CTX.strokeStyle = col(0.075); CTX.stroke();
+        CTX.lineWidth = 1.8; CTX.strokeStyle = col(0.55); CTX.stroke();
+      });
+  }},
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
