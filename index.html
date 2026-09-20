@@ -228,6 +228,11 @@
 const EMBED_PARAMS = new URLSearchParams(location.search);
 const EMBED = EMBED_PARAMS.has('embed');
 if (EMBED) { document.documentElement.classList.add('embed'); document.body.classList.add('embed'); }
+// diagnostic: tot ce ar fi ajuns în consolă (invizibilă într-un WKWebView), pentru halo.probe()
+const consoleLog = [];
+if (EMBED) for (const k of ['log', 'warn', 'error']) { const f = console[k].bind(console); console[k] = (...a) => { consoleLog.push(k + ': ' + a.map(x => String(x)).join(' ').slice(0, 300)); f(...a); }; }
+addEventListener('error', e => consoleLog.push('uncaught: ' + e.message + ' @' + e.lineno));
+addEventListener('unhandledrejection', e => consoleLog.push('rejection: ' + (e.reason && e.reason.message || e.reason)));
 function post(msg) {
   try { window.webkit.messageHandlers.halo.postMessage(msg); } catch (e) { /* în browser: nimeni nu ascultă */ }
 }
@@ -1288,7 +1293,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '18:33:10 c5640bd';
+const BUILD = '18:40:45 48a77db';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1470,6 +1475,12 @@ function keyPass(mode, src) {
     keyCv.width = src.width; keyCv.height = src.height;
     keyCv.style.width = src.style.width; keyCv.style.height = src.style.height;
   }
+  let before = null;
+  if ((keyFrames + 1) % 30 === 0 && viz && viz.renderer && viz.renderer.gl.canvas === src) {
+    const g = viz.renderer.gl, q = new Uint8Array(4); let mm = 0;
+    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) { g.readPixels(Math.floor((i + .5) * src.width / 16), Math.floor((j + .5) * src.height / 16), 1, 1, g.RGBA, g.UNSIGNED_BYTE, q); mm += Math.max(q[0], q[1], q[2]); }
+    before = +(mm / 256).toFixed(1);
+  }
   gl.bindTexture(gl.TEXTURE_2D, keyTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
   gl.viewport(0, 0, keyCv.width, keyCv.height);
@@ -1491,7 +1502,7 @@ function keyPass(mode, src) {
       }
       eng = { rgbMax: +(mm / N / N).toFixed(1), err: g.getError() };
     }
-    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src), engineReadPixels: eng };
+    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src), engineReadPixels: eng, engineBeforeTexImage: before, attrs: viz && viz.renderer ? viz.renderer.gl.getContextAttributes() : null, keyAttrs: gl.getContextAttributes() };
   }
 }
 let keyFrames = 0, keyStats = null;
@@ -1548,6 +1559,7 @@ if (EMBED) {
   // de mai sus le-au găsit): desenate în continuare, dar niciodată compuse
   document.getElementById('md').remove();
   waterCv.remove();
+  if (EMBED_PARAMS.has('dbg')) { document.body.appendChild(mdCanvas); mdCanvas.style.cssText = 'position:fixed;left:0;top:0;width:864px;height:864px;z-index:5;opacity:1'; }
   const webgl = keySetup();
   window.halo = {
     pick(i) { pick(i); return FORMULAS[i] ? FORMULAS[i].name : 'no such effect: ' + i; },
@@ -1559,7 +1571,7 @@ if (EMBED) {
     // diagnostic: ce vede pagina și cât de luminoase sunt pânzele (host: WT_HALO_PAGE_PROBE=1)
     probe() {
       let lo = 255, hi = 0; for (let i = 0; i < 1024; i++) { lo = Math.min(lo, mdBytes[i]); hi = Math.max(hi, mdBytes[i]); }
-      return JSON.stringify({ calls, fIdx, pinned, mdOn, viz: !!viz, running, keyMode, keyClass: keyCv.className,
+      return JSON.stringify({ console: consoleLog.slice(-12), calls, fIdx, pinned, mdOn, viz: !!viz, running, keyMode, keyClass: keyCv.className,
         key: { w: keyCv.width, h: keyCv.height, cssW: keyCv.style.width, inFrame: keyStats },
         md: { w: mdCanvas.width, h: mdCanvas.height, cssW: mdCanvas.style.width },
         full: { w: full.width, hidden: full.classList.contains('hidden') },
@@ -1569,7 +1581,8 @@ if (EMBED) {
           fps: +r.fps.toFixed(1), frameNum: r.frameNum, aspect: [r.aspectx, r.aspecty], levels: r.audioLevels && { bass: +r.audioLevels.bass.toFixed(2), mid: +r.audioLevels.mid.toFixed(2), treb: +r.audioLevels.treb.toFixed(2), bass_att: +r.audioLevels.bass_att.toFixed(2) },
           imm: Array.from(r.audioLevels.imm).map(v => +v.toFixed(0)), longAvg: Array.from(r.audioLevels.longAvg).map(v => +v.toFixed(0)),
           lost: r.gl.isContextLost(), sameCanvas: r.gl.canvas === mdCanvas, dbw: r.gl.drawingBufferWidth, keyLost: keyGL && keyGL.isContextLost(),
-          frameVars: (v => v && Object.fromEntries(['zoom','rot','decay','wave_a','wave_r','wave_g','wave_b','warp','q1','q2','q3','time','frame','fps','echo_alpha','gamma','brighten','darken','invert'].map(k => [k, typeof v[k] === 'number' ? +v[k].toFixed(3) : v[k]])))(r.presetEquationRunner && r.presetEquationRunner.mdVSFrame),
+          shaders: (g => Object.fromEntries(['warpShader','compShader','outputShader','blurShader1','resampleShader'].map(k => [k, r[k] && r[k].shaderProgram ? [g.getProgramParameter(r[k].shaderProgram, g.LINK_STATUS), (g.getProgramInfoLog(r[k].shaderProgram) || '').slice(0, 120)] : 'none'])))(r.gl), glErr: r.gl.getError(),
+          vp: Array.from(r.gl.getParameter(r.gl.VIEWPORT)), size: [r.width, r.height, r.pixelRatio, r.textureRatio, r.outputFXAA, r.gl.drawingBufferWidth, r.gl.drawingBufferHeight, r.gl.canvas.width, r.gl.canvas.height], frameVars: (v => v && Object.fromEntries(['zoom','rot','cx','cy','dx','dy','sx','sy','wave_x','wave_y','decay','warp','echo_zoom','echo_alpha','aspectx','aspecty','pixelsx','pixelsy','meshx','meshy'].map(k => [k, typeof v[k] === 'number' ? +v[k].toFixed(3) : v[k]])))(r.presetEquationRunner && r.presetEquationRunner.mdVSFrame),
           warp: (r.preset.warp || '').length, comp: (r.preset.comp || '').length, baseZoom: r.preset.baseVals && r.preset.baseVals.zoom, baseRot: r.preset.baseVals && r.preset.baseVals.rot }))(viz.renderer) : null,
         mdScale: getComputedStyle(document.documentElement).getPropertyValue('--mdScale'),
         walk: getComputedStyle(document.documentElement).getPropertyValue('--walk'),
