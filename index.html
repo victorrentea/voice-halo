@@ -1105,12 +1105,17 @@ addEventListener('keydown', e => {
 // ── plimbarea: halo-ul rătăcește lent pe ecran, ca să se vadă urma din spate ──
 // Traseu Lissajous cu perioade incomensurabile, deci nu se repetă vizibil.
 let walk = false;
+const cursorEl = document.getElementById('cursor');
 const walkBtn = document.getElementById('walkBtn');
 walkBtn.addEventListener('click', ev => {
   ev.stopPropagation();
   walk = !walk;
   walkBtn.classList.toggle('on', walk);
-  if (!walk) wrap.style.transform = 'translate(-50%, -50%)';
+  if (!walk) {
+    wrap.style.transform = 'translate(-50%, -50%)';
+    cursorEl.style.transform = '';
+    full.style.transform = '';
+  }
 });
 function walkOffset(t) {
   if (!walk) return '';
@@ -1188,7 +1193,14 @@ layout();
 const t0 = performance.now();
 (function frame(now) {
   const t = (now - t0) / 1000;
-  if (walk) wrap.style.transform = 'translate(-50%, -50%)' + walkOffset(t);
+  if (walk) {
+    // cursorul merge cu efectul: vârful lui trebuie să stea mereu în centrul lui,
+    // altfel plimbarea le desparte și nu mai vezi unde ar fi mouse-ul în realitate
+    const off = walkOffset(t);
+    wrap.style.transform = 'translate(-50%, -50%)' + off;
+    cursorEl.style.transform = off;
+    full.style.transform = off;
+  }
   analyser.getFloatTimeDomainData(wave);
   analyser.getByteFrequencyData(spec);
   updateBands();
