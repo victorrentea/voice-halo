@@ -906,6 +906,41 @@ const FORMULAS = [
         CTX.lineWidth = 1.8; CTX.strokeStyle = col(0.55); CTX.stroke();
       });
   }},
+  { name: 'mătase Flexi — filamente fine, iridescente', rest: 0.50, full: true, draw(t) {
+      // Inspirat din „Flexi - truly soft piece of software (Jelly)". Ăsta e singurul
+      // dintre cele alese care NU se poate porta mecanic: la el imaginea vine din
+      // shaderul de pixeli (wave_a=0.004, adică unda e practic invizibilă), nu din
+      // vreo undă desenată. Ce se poate reproduce e comportamentul: decay ≈ 1, deci
+      // filamentele rămân minute întregi și se depun în fire de mătase.
+      tunnelLayer({ DECAY: 0.975, ZOOM: 1.006, TWIST: 0.0042 }, () => {
+        const S = Math.min(innerWidth, innerHeight);
+        const r0 = S * 0.17;                       // pornesc din afara cursorului
+        const STRANDS = 5, SEG = 26;
+        for (let f = 0; f < STRANDS; f++) {
+          const ph = f * 2.39996 + Math.sin(t * 0.13 + f) * 1.4;
+          const a0 = t * 0.11 + ph;
+          // culoare iridescentă: verde → cyan → albastru → galben, plimbată lent
+          const hue = (128 + 110 * Math.sin(t * 0.21 + f * 1.7) + f * 24) % 360;
+          const en = 0.25 + 0.75 * eAt((f * 0.19 + 0.1) % 1);
+          CTX.beginPath();
+          for (let k = 0; k <= SEG; k++) {
+            const u = k / SEG;
+            // firul se desfășoară spre exterior, ondulat de voce și de un mers lent
+            const rr = r0 * (1 + 1.25 * u * (0.55 + 0.45 * en));
+            const th = a0 + u * (1.15 + 0.6 * Math.sin(t * 0.27 + f))
+                     + 0.30 * Math.sin(u * 7 + t * 0.9 + f) * (0.4 + 0.6 * en)
+                     + 0.45 * vs((u + f * 0.2) % 1);
+            const x = Math.cos(th) * rr, y = Math.sin(th) * rr;
+            k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
+          }
+          CTX.lineJoin = CTX.lineCap = 'round';
+          CTX.strokeStyle = `hsla(${hue}, 90%, 62%, ${0.05 + 0.10 * en})`;
+          CTX.lineWidth = 5; CTX.stroke();
+          CTX.strokeStyle = `hsla(${hue}, 95%, 72%, ${0.16 + 0.34 * en})`;
+          CTX.lineWidth = 1.1; CTX.stroke();
+        }
+      });
+  }},
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
