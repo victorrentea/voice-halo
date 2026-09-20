@@ -68,7 +68,7 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
                       "document.getElementById('cursor').style.display = 'none'")
 
         meta = page.evaluate("FORMULAS.map(f => ({name: f.name, desc: f.desc || '',"
-                             " preset: !!f.preset}))")
+                             " preset: !!f.preset, scene: !!f.water}))")
         for i, m in enumerate(meta):
             name = m["name"]
             bare = name.lstrip("★•− ").strip()
@@ -82,7 +82,12 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
 
             shutil.rmtree(FRAMES, ignore_errors=True)
             os.makedirs(FRAMES)
-            clip = {"x": 80, "y": 80, "width": 600, "height": 600}
+            # Efectele-halo se încadrează bine într-un pătrat din centru. Cele care
+            # sunt SCENE pe tot ecranul (Lagoon are linia apei la 80% din înălțime)
+            # își pierd tocmai partea de jos dacă le decupezi centrul — se capturează
+            # toată fereastra, altfel cardul arată mult mai sărac decât efectul.
+            clip = ({"x": 0, "y": 0, "width": 760, "height": 760} if m["scene"]
+                    else {"x": 80, "y": 80, "width": 600, "height": 600})
             for k in range(int(seconds * fps)):
                 page.screenshot(path=f"{FRAMES}/f{k:04d}.png", clip=clip)
 
