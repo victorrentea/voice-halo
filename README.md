@@ -1,9 +1,11 @@
 # Voice Halo
 
+**▶ Demo live: https://victorrentea.github.io/voice-halo/** — deschide-l pe telefon,
+dă drumul la microfon și vorbește. Galeria cu toate efectele:
+[galerie.html](https://victorrentea.github.io/voice-halo/galerie.html)
+
 Un halo audio-reactiv, pentru telefon. Deschizi pagina, dai drumul la microfon și
 cercul din mijlocul ecranului reacționează la voce.
-
-**→ https://victorrentea.github.io/voice-halo/**
 
 ## De ce arată așa
 

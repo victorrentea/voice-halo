@@ -2,84 +2,96 @@
 <html lang="ro">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Voice Halo — efectele rămase</title>
+<title>Voice Halo — efecte</title>
 <style>
   :root { color-scheme: dark }
-  body { margin: 0; padding: 18px 14px 40px; background: #05070a; color: #cfd6de;
+  body { margin: 0; padding: 18px 14px 48px; background: #05070a; color: #cfd6de;
          font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif }
   h1 { font-size: 17px; margin: 0 0 4px }
   p.sub { margin: 0 0 20px; color: #7f8894; font-size: 12px }
   .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) }
   figure { margin: 0; background: #0b0f15; border: 1px solid #1d242d; border-radius: 12px; overflow: hidden }
-  img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; background: #000 }
-  figcaption { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 2px }
+  video { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; background: #000 }
+  figcaption { padding: 9px 11px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px }
   figcaption b { font-size: 15px; color: #e7edf5 }
-  figcaption span { font-size: 11px; color: #79828e }
+  figcaption i { font-style: normal; color: #7fc9ff; font-size: 12px }
+  figcaption span { flex: 1 0 100%; font-size: 11px; color: #79828e }
   a { color: #7fc9ff }
 </style>
-<h1>Voice Halo — efectele rămase</h1>
-<p class="sub">Capturi din pagina reală, cu semnal de test. Cele marcate − și efectul cu apă desenat de mână nu sunt aici.
-  · <a href="./">înapoi la halo</a></p>
+<h1>Voice Halo — efecte</h1>
+<p class="sub">Trei secunde din fiecare, înregistrate din pagina reală cu semnal de test.
+  ⚡ = preset MilkDrop rulat cu motorul lui · ★ îmi place mult · • are potențial ·
+  cele marcate − lipsesc, nu se implementează. · <a href="./">deschide halo-ul</a></p>
 <div class="grid">
   <figure>
-    <img src="galerie/01.png" alt="Puls" loading="lazy">
-    <figcaption><b>Puls</b><span>1 · inel de undă — cerc perfect în tăcere, se rotește</span></figcaption>
+    <video src="galerie/01.mp4" poster="galerie/01.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Pulse</b><span>inel de undă — cerc perfect în tăcere, se rotește</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/02.png" alt="Ametist" loading="lazy">
-    <figcaption><b>Ametist</b><span>2 · oscilogramă mov — albastrul și roșul suprapuse</span></figcaption>
+    <video src="galerie/02.mp4" poster="galerie/02.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Amethyst</b><span>oscilogramă mov — albastrul și roșul suprapuse</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/03.png" alt="Coroană" loading="lazy">
-    <figcaption><b>Coroană</b><span>3 · coroană — numai barele, fără cerc fix</span></figcaption>
+    <video src="galerie/03.mp4" poster="galerie/03.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Crown</b><span>coroană — numai barele, fără cerc fix</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/04.png" alt="Prismă" loading="lazy">
-    <figcaption><b>Prismă</b><span>4 · inel de segmente — nuanța se închide fără cusătură</span></figcaption>
+    <video src="galerie/04.mp4" poster="galerie/04.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Prism</b><span>inel de segmente — nuanța se închide fără cusătură</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/05.png" alt="Furtună" loading="lazy">
-    <figcaption><b>Furtună</b><span>5 · lanț de fulgere — lasă valuri de ceață în urmă</span></figcaption>
+    <video src="galerie/05.mp4" poster="galerie/05.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Eclipse</b><span>lanț de fulgere — lasă valuri de ceață în urmă</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/06.png" alt="Atom" loading="lazy">
-    <figcaption><b>Atom</b><span>6 · orbite rare — gaură mare, blocuri clare</span></figcaption>
+    <video src="galerie/06.mp4" poster="galerie/06.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Atom</b><span>orbite rare — gaură mare, blocuri clare</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/07.png" alt="Gemeni" loading="lazy">
-    <figcaption><b>Gemeni</b><span>7 · două bile — ceață suflată din contur spre exterior</span></figcaption>
+    <video src="galerie/07.mp4" poster="galerie/07.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Gemini</b><span>două bile — ceață suflată din contur spre exterior</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/09.png" alt="Tunel" loading="lazy">
-    <figcaption><b>Tunel</b><span>9 · MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)</span></figcaption>
+    <video src="galerie/09.mp4" poster="galerie/09.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Tunnel</b><i>•</i><span>MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/10.png" alt="Cazan" loading="lazy">
-    <figcaption><b>Cazan</b><span>10 · MilkDrop 8 — Geiss, Cauldron painterly 2</span></figcaption>
+    <video src="galerie/10.mp4" poster="galerie/10.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Cauldron</b><span>MilkDrop 8 — Geiss, Cauldron painterly 2</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/11.png" alt="Tendrile" loading="lazy">
-    <figcaption><b>Tendrile</b><span>11 · MilkDrop 20 — Aderrasi, Painterly Tendrils</span></figcaption>
+    <video src="galerie/11.mp4" poster="galerie/11.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Tendrils</b><i>•</i><span>MilkDrop 20 — Aderrasi, Painterly Tendrils</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/14.png" alt="Fulg" loading="lazy">
-    <figcaption><b>Fulg</b><span>14 · MilkDrop 85 — Zylot, Star Ornament (mic)</span></figcaption>
+    <video src="galerie/14.mp4" poster="galerie/14.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Snowflake</b><span>MilkDrop 85 — Zylot, Star Ornament (mic)</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/15.png" alt="Scântei" loading="lazy">
-    <figcaption><b>Scântei</b><span>15 · MilkDrop 87 — martin, chain breaker</span></figcaption>
+    <video src="galerie/15.mp4" poster="galerie/15.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Sparks</b><i>★</i><span>MilkDrop 87 — martin, chain breaker</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/17.png" alt="Mozaic" loading="lazy">
-    <figcaption><b>Mozaic</b><span>17 · MilkDrop 99 — martin, reflections on black tiles</span></figcaption>
+    <video src="galerie/18.mp4" poster="galerie/18.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>⚡ Water Dream</b><i>★</i><span>MilkDrop 103 — fata morgana (apă cu oglindire)</span></figcaption>
   </figure>
   <figure>
-    <img src="galerie/18.png" alt="Miraj" loading="lazy">
-    <figcaption><b>Miraj</b><span>18 · MilkDrop 103 — fata morgana (apă cu oglindire)</span></figcaption>
-  </figure>
-  <figure>
-    <img src="galerie/19.png" alt="Mărgele" loading="lazy">
-    <figcaption><b>Mărgele</b><span>19 · inel de blocuri — cerc în repaus, crește doar în afară</span></figcaption>
+    <video src="galerie/19.mp4" poster="galerie/19.png"
+           autoplay loop muted playsinline preload="none"></video>
+    <figcaption><b>Beads</b><span>inel de blocuri — cerc în repaus, crește doar în afară</span></figcaption>
   </figure>
 </div>
 </html>

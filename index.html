@@ -261,7 +261,8 @@ async function startMic() {
     micOn = true;
     micBtn.className = 'live';
     micBtn.textContent = '🎙 microfon pornit';
-    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name;
+    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name +
+      (FORMULAS[fIdx].desc ? '  ·  ' + FORMULAS[fIdx].desc : '');
     keepAwake();
   } catch (e) {
     micBtn.className = 'bad';
@@ -312,6 +313,7 @@ const rad = scale => (RING_OF_WIDTH / 2) * Math.min(innerWidth, innerHeight) / 0
 let walkX = 0, walkY = 0;
 
 function layout() {
+  calls.layout++;
   const vw = window.innerWidth, vh = window.innerHeight;
   fullSize();
   // butterchurn nu scrie singur atributele canvasului (rămân 300×150, adică imagine
@@ -320,8 +322,9 @@ function layout() {
   // direcții (deci nu i se vede marginea) și păstrează raportul presetului.
   const side = Math.max(vw, vh), px = Math.round(side * dpr);
   mdCanvas.style.width = mdCanvas.style.height = side + 'px';
+  if (mdCanvas.width === px && mdCanvas.height === px) return;   // neschimbat: nu goli pânza WebGL
   mdCanvas.width = mdCanvas.height = px;
-  if (viz) viz.setRendererSize(px, px);
+  if (viz) { calls.rendererSize++; viz.setRendererSize(px, px); }
 }
 const keyCv = document.getElementById('key');
 addEventListener('resize', layout);
@@ -712,13 +715,13 @@ function spike(ax, ay, bx, by, hue, width, alpha) {
 //   ★ = îi place mult   • = „are mult potențial"   − = nu-i place
 // Ordinea NU se schimbă niciodată la un review — doar etichetele.
 const FORMULAS = [
-  { name: 'inel de undă — cerc perfect în tăcere, se rotește', scale: 0.303, draw(t) {
+  { name: 'Pulse', desc: 'inel de undă — cerc perfect în tăcere, se rotește', scale: 0.303, draw(t) {
       // nu mai folosește unda proprie pentru FORMĂ: în liniște amplitudinea e zero,
       // deci rămâne cerc. Ce continuă în tăcere e rotația, nu deformarea.
       milkdropRing(t, rad(0.606), { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.42, AMP: 0.21,
                         W: 1.1, SPIN: 0.30, LIVE_ONLY: true });   // diametru 80%
   }},
-  { name: 'oscilogramă mov — albastrul și roșul suprapuse', scale: 0.303, draw(t) {
+  { name: 'Amethyst', desc: 'oscilogramă mov — albastrul și roșul suprapuse', scale: 0.303, draw(t) {
       const R = rad(0.606);
       splitWave();
       tunnelLayer({ DECAY: 0.80, ZOOM: 1.007, TWIST: 0.002 }, () => {
@@ -740,7 +743,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'coroană — numai barele, fără cerc fix', scale: 0.303, draw(t) {
+  { name: 'Crown', desc: 'coroană — numai barele, fără cerc fix', scale: 0.303, draw(t) {
       // cercul galben care stătea fixat a fost scos; rămân doar barele
       const R = rad(0.606);
       plainLayer(() => {
@@ -756,7 +759,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'inel de segmente — nuanța se închide fără cusătură', scale: 0.3125, draw(t) {
+  { name: 'Prism', desc: 'inel de segmente — nuanța se închide fără cusătură', scale: 0.3125, draw(t) {
       // nuanța parcurgea doar 170° și, la închiderea cercului, portocaliul ajungea
       // lipit de albastru. Acum face un tur COMPLET de 360°, deci ultimul segment
       // are exact nuanța primului și cusătura dispare.
@@ -774,7 +777,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'lanț de fulgere — lasă valuri de ceață în urmă', scale: 0.25, draw(t) {
+  { name: 'Eclipse', desc: 'lanț de fulgere — lasă valuri de ceață în urmă', scale: 0.25, draw(t) {
       // Efectul care l-a scos din sărite pe Victor: urma lui umplea pătratul și i se
       // vedea muchia. Acum pânza e tot ecranul, deci ceața se oprește abia în
       // marginea ecranului — fiindcă acolo se termină ecranul, nu fiindcă a tăiat-o ceva.
@@ -817,12 +820,12 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'orbite rare — gaură mare, blocuri clare', scale: 0.174, draw(t) {
+  { name: 'Atom', desc: 'orbite rare — gaură mare, blocuri clare', scale: 0.174, draw(t) {
       // gaura din mijloc de 2,5 ori mai mare, iar inelul strâns (RING_FRAC mai mic).
       // Pătratul care tăia mărgelele din față nu mai există deloc.
       drawOrbits(t, rad(0.348), 0.5, 1.40, 0.22);
   }},
-  { name: 'două bile — ceață suflată din contur spre exterior', scale: 0.2273, draw(t) {
+  { name: 'Gemini', desc: 'două bile — ceață suflată din contur spre exterior', scale: 0.2273, draw(t) {
       const R = rad(0.4545);
       // Din film: două bile diametral opuse care se rotesc lent în jurul centrului,
       // iar de pe conturul lor se ridică o ceață care e mereu împinsă spre exterior
@@ -871,7 +874,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: '− raze ORB — petale rotitoare, fără flash', scale: 0.25, draw(t) {
+  { name: '− Petals', desc: 'raze ORB — petale rotitoare, fără flash', scale: 0.25, draw(t) {
       // Din „ORB - Waaa". Presetul are TREI forme suprapuse (100 de laturi fiecare),
       // rotite cu viteze apropiate și una în sens invers: ang = q2, -1.05*q2 și
       // 0.899*q2 — de aici bătaia lentă dintre straturi. Culorile sunt chiar
@@ -931,21 +934,21 @@ const FORMULAS = [
   // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
   // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
-  { name: '• MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.5 },
-  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.35 },
+  { name: '• Tunnel', desc: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.5 },
+  { name: 'Cauldron', desc: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.35 },
   // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
   // presetului rămâne intactă
-  { name: '• MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.35 },
-  { name: '− MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ', scale: 0.5 },
-  { name: '− MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa', scale: 0.5 },
-  { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.165 },
-  { name: '★ MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.5 },
-  { name: '− MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
-  { name: '★ MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
+  { name: '• Tendrils', desc: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.35 },
+  { name: '− Silk', desc: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ', scale: 0.5 },
+  { name: '− Nova', desc: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa', scale: 0.5 },
+  { name: 'Snowflake', desc: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.165 },
+  { name: '★ Sparks', desc: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.5 },
+  { name: '− Royal', desc: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
+  { name: '− Mosaic', desc: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
   // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
   // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
-  { name: '★ MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana', scale: 0.5 },
-  { name: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.4, draw(t) {
+  { name: '★ Water Dream', desc: 'MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana', scale: 0.5 },
+  { name: 'Beads', desc: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.4, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
       // Sclipirea rămâne: mărimea blocului respiră chiar și în liniște.
@@ -980,7 +983,7 @@ const FORMULAS = [
   // ── apa: singurul efect cu pânză proprie ───────────────────────────────────
   // E o SCENĂ opacă (cer + bazin), nu un halo aditiv, deci nu poate sta pe #full,
   // care se compune cu `screen`. Codul stă în water.js — 230 de linii inutile aici.
-  { name: 'apă — comete oglindite în apa de jos', water: true },
+  { name: 'Lagoon', desc: 'apă — comete oglindite în apa de jos', water: true },
 ];
 
 
@@ -1073,7 +1076,9 @@ function drawWater(t) {
 // și cele „numai linii" — restul umplu cadrul cu fundal colorat, adică exact ce nu
 // vrem peste o aplicație.
 let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0, pinned = null;
-const mdCanvas = document.getElementById('md');
+// în embed motorul primește o pânză NOUĂ, nelegată de DOM, exact ca în vechiul
+// halo.html (bisect 2026-09-20: pe #md scos din DOM presetele ieșeau stinse)
+const mdCanvas = EMBED ? document.createElement('canvas') : document.getElementById('md');
 const mdBtn = document.getElementById('mdBtn');
 
 function loadScript(src) {
@@ -1100,7 +1105,9 @@ async function mdBoot() {
   return await mdEnable(true);
 }
 
+const calls = { pick: 0, pinPreset: 0, loadPreset: 0, layout: 0, rendererSize: 0, start: 0 };
 async function pinPreset(name, scale, fade) {
+  calls.pinPreset++;
   if (!(await mdBoot())) return false;
   if (!mdPresets[name]) { label.textContent = 'presetul nu există: ' + name; return false; }
   pinned = name;
@@ -1113,6 +1120,7 @@ async function pinPreset(name, scale, fade) {
   full.classList.add('hidden');
   waterCv.classList.add('hidden');
   layout();
+  calls.loadPreset++;
   viz.loadPreset(mdPresets[name], 0.6);
   return true;
 }
@@ -1153,7 +1161,7 @@ async function mdEnable(bootOnly) {
     // altfel rămâne cu viewport-ul vechi și presetul se desenează la altă scară,
     // înghesuit într-un colț. De aceea layout() rulează înainte, cu mdOn deja pus.
     layout();
-    viz = (butterchurn.default || butterchurn).createVisualizer(actx, mdCanvas,
+    viz = (butterchurn.default || butterchurn).createVisualizer(EMBED ? new (window.AudioContext || window.webkitAudioContext)() : actx, mdCanvas,
             { width: mdCanvas.width, height: mdCanvas.height, pixelRatio: 1 });
     viz.setRendererSize(mdCanvas.width, mdCanvas.height);
     if (micSource) viz.connectAudio(micSource);
@@ -1189,7 +1197,8 @@ mdBtn.addEventListener('click', async ev => {
     }
   } else {
     mdOn = false;
-    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name;
+    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name +
+      (FORMULAS[fIdx].desc ? '  ·  ' + FORMULAS[fIdx].desc : '');
   }
   mdBtn.classList.toggle('on', mdOn);
   mdCanvas.classList.toggle('hidden', !mdOn);
@@ -1279,7 +1288,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '18:21:25 f410aee';
+const BUILD = '18:33:10 c5640bd';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1311,6 +1320,7 @@ FORMULAS.forEach((f, i) => {
   chips.append(b);
 });
 function pick(i) {
+  calls.pick++;
   fIdx = i;
   const F = FORMULAS[i];
   if (F.preset) {
@@ -1326,7 +1336,8 @@ function pick(i) {
   unpin();
   clearTrail();
   [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
-  label.textContent = (i + 1) + ' — ' + FORMULAS[i].name;
+  label.textContent = (i + 1) + ' — ' + FORMULAS[i].name +
+    (FORMULAS[i].desc ? '  ·  ' + FORMULAS[i].desc : '');
   layout();
   poke();
   post({ event: 'picked', index: i, name: F.name, ok: true });
@@ -1364,7 +1375,9 @@ poke();
 const EMU_N = 2048, EMU_IN = Math.ceil(EMU_N / 3);
 const emuRe = new Float32Array(EMU_N), emuIm = new Float32Array(EMU_N), emuMag = new Float32Array(EMU_N / 2);
 const emuWin = new Float32Array(EMU_N);
-const mdBytes = new Uint8Array(1024).fill(128);          // pentru motorul MilkDrop, în embed
+// pentru motorul MilkDrop, în embed: TREI tablouri, ca în halo.html — motorul le
+// poate prelucra pe loc, și unul singur dat de trei ori ar fi prelucrat de trei ori
+const mdBytes = new Uint8Array(1024).fill(128), mdBytesL = new Uint8Array(1024).fill(128), mdBytesR = new Uint8Array(1024).fill(128);
 for (let i = 0; i < EMU_N; i++)
   emuWin[i] = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / EMU_N) + 0.08 * Math.cos(4 * Math.PI * i / EMU_N);
 const emuRev = new Uint16Array(EMU_N);
@@ -1402,7 +1415,7 @@ function emuAudio(b64) {
   // ca în vechiul halo.html — nu fereastra interpolată: aceea îi îngrămădea toată
   // energia în „bass" și presetele ieșeau stinse (măsurat 2026-09-20)
   const mdFrom = Math.max(0, n - 1024);
-  for (let i = 0; i < 1024; i++) mdBytes[i] = Math.max(0, Math.min(255, Math.round(128 + (pcm[mdFrom + i] || 0) * 127)));
+  for (let i = 0; i < 1024; i++) mdBytes[i] = mdBytesL[i] = mdBytesR[i] = Math.max(0, Math.min(255, Math.round(128 + (pcm[mdFrom + i] || 0) * 127)));
   for (let i = 0; i < EMU_N; i++) { emuRe[i] = wave[i] * emuWin[i]; emuIm[i] = 0; }
   emuFFT();
   const tau = 0.72 * 0.72;
@@ -1469,7 +1482,16 @@ function keyPass(mode, src) {
       gl.readPixels(Math.floor((i + .5) * keyCv.width / N), Math.floor((j + .5) * keyCv.height / N), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       a += px[3]; m += Math.max(px[0], px[1], px[2]);
     }
-    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src) };
+    let eng = null;
+    if (viz && viz.renderer && viz.renderer.gl && viz.renderer.gl.canvas === src) {
+      const g = viz.renderer.gl, q = new Uint8Array(4); let mm = 0;
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        g.readPixels(Math.floor((i + .5) * src.width / N), Math.floor((j + .5) * src.height / N), 1, 1, g.RGBA, g.UNSIGNED_BYTE, q);
+        mm += Math.max(q[0], q[1], q[2]);
+      }
+      eng = { rgbMax: +(mm / N / N).toFixed(1), err: g.getError() };
+    }
+    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src), engineReadPixels: eng };
   }
 }
 let keyFrames = 0, keyStats = null;
@@ -1504,7 +1526,7 @@ function frame(now) {
   if (md && viz) {
     // în embed motorul n-are microfon conectat: primește aceleași eșantioane ca
     // octeții pe care i-ar fi produs analizorul lui (ultimele 1024 ale ferestrei)
-    if (EMBED) viz.render({ audioLevels: { timeByteArray: mdBytes, timeByteArrayL: mdBytes, timeByteArrayR: mdBytes } });
+    if (EMBED) viz.render({ audioLevels: { timeByteArray: mdBytes, timeByteArrayL: mdBytesL, timeByteArrayR: mdBytesR } });
     else viz.render();
     if (EMBED) keyPass('md', mdCanvas);
   } else if (F.preset) {
@@ -1524,25 +1546,31 @@ function start() { if (running) return; running = true; requestAnimationFrame(fr
 if (EMBED) {
   // pânzele opace pe care le cheiază #key ies din DOM (după ce toate referințele
   // de mai sus le-au găsit): desenate în continuare, dar niciodată compuse
-  mdCanvas.remove();
+  document.getElementById('md').remove();
   waterCv.remove();
   const webgl = keySetup();
   window.halo = {
     pick(i) { pick(i); return FORMULAS[i] ? FORMULAS[i].name : 'no such effect: ' + i; },
     center(x, y) { embedCX = x; embedCY = y; },
     audio(b64) { emuAudio(b64); },
-    start() { clearTrail(); start(); },
+    start() { calls.start++; clearTrail(); start(); },
     stop() { running = false; },
     names() { return FORMULAS.map(f => f.name); },
     // diagnostic: ce vede pagina și cât de luminoase sunt pânzele (host: WT_HALO_PAGE_PROBE=1)
     probe() {
       let lo = 255, hi = 0; for (let i = 0; i < 1024; i++) { lo = Math.min(lo, mdBytes[i]); hi = Math.max(hi, mdBytes[i]); }
-      return JSON.stringify({ fIdx, pinned, mdOn, viz: !!viz, running, keyMode, keyClass: keyCv.className,
+      return JSON.stringify({ calls, fIdx, pinned, mdOn, viz: !!viz, running, keyMode, keyClass: keyCv.className,
         key: { w: keyCv.width, h: keyCv.height, cssW: keyCv.style.width, inFrame: keyStats },
         md: { w: mdCanvas.width, h: mdCanvas.height, cssW: mdCanvas.style.width },
         full: { w: full.width, hidden: full.classList.contains('hidden') },
         presetVals: viz && viz.renderer && viz.renderer.preset ? Object.keys(viz.renderer.preset).slice(0, 8) : null,
         vizTime: viz && viz.renderer ? viz.renderer.time : null, frames: keyFrames,
+        engine: viz && viz.renderer ? (r => ({ blending: r.blending, blendProgress: r.blendProgress, tex: [r.texsizeX, r.texsizeY], mesh: [r.mesh_width, r.mesh_height],
+          fps: +r.fps.toFixed(1), frameNum: r.frameNum, aspect: [r.aspectx, r.aspecty], levels: r.audioLevels && { bass: +r.audioLevels.bass.toFixed(2), mid: +r.audioLevels.mid.toFixed(2), treb: +r.audioLevels.treb.toFixed(2), bass_att: +r.audioLevels.bass_att.toFixed(2) },
+          imm: Array.from(r.audioLevels.imm).map(v => +v.toFixed(0)), longAvg: Array.from(r.audioLevels.longAvg).map(v => +v.toFixed(0)),
+          lost: r.gl.isContextLost(), sameCanvas: r.gl.canvas === mdCanvas, dbw: r.gl.drawingBufferWidth, keyLost: keyGL && keyGL.isContextLost(),
+          frameVars: (v => v && Object.fromEntries(['zoom','rot','decay','wave_a','wave_r','wave_g','wave_b','warp','q1','q2','q3','time','frame','fps','echo_alpha','gamma','brighten','darken','invert'].map(k => [k, typeof v[k] === 'number' ? +v[k].toFixed(3) : v[k]])))(r.presetEquationRunner && r.presetEquationRunner.mdVSFrame),
+          warp: (r.preset.warp || '').length, comp: (r.preset.comp || '').length, baseZoom: r.preset.baseVals && r.preset.baseVals.zoom, baseRot: r.preset.baseVals && r.preset.baseVals.rot }))(viz.renderer) : null,
         mdScale: getComputedStyle(document.documentElement).getPropertyValue('--mdScale'),
         walk: getComputedStyle(document.documentElement).getPropertyValue('--walk'),
         audio: { lo, hi, level: +levelNow.toFixed(3) }, dpr, vw: innerWidth, vh: innerHeight });
