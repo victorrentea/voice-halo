@@ -49,6 +49,8 @@
   #mic.live { border-color: var(--line); background: rgba(10,14,19,.6); color: var(--dim);
               font-weight: 400; font-size: 12px; padding: 7px 14px }
   #mic.bad { border-color: #7a3a33; color: #ff9b8a }
+  #ver { font-size: 10px; color: #5c6570; letter-spacing: .04em }
+  #ver.fresh { color: #7fe3ff }
   /* fundal de IDE: ca să judeci cum compune halo-ul peste o aplicație reală,
      nu peste un gradient curat. Se comută din butonul din colț. */
   #ide { position: fixed; inset: 0; z-index: 0; display: none; overflow: hidden;
@@ -146,6 +148,7 @@
   <div id="chips"></div>
   <div id="bottom">
     <div id="label">apasă pe buton ca să pornești microfonul</div>
+    <div id="ver">v —</div>
     <div id="row">
       <button id="mic">🎙 pornește microfonul</button>
       <button id="bg">fundal: IDE</button>
@@ -1140,6 +1143,30 @@ hudBtn.addEventListener('click', ev => {
   hudBtn.classList.toggle('on', document.body.classList.contains('bare'));
   hudBtn.textContent = document.body.classList.contains('bare') ? 'arată barele' : 'ascunde barele';
 });
+
+
+// ── actualizare automată ─────────────────────────────────────────────────────
+// GitHub Pages trimite `cache-control: max-age=600`, deci telefonul poate sta 10
+// minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
+// pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
+// octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
+const BUILD = '16:42:45 78aba26';
+const verEl = document.getElementById('ver');
+verEl.textContent = 'v ' + BUILD;
+async function checkVersion() {
+  try {
+    const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const live = (await r.text()).trim();
+    if (live && live !== BUILD) {
+      verEl.classList.add('fresh');
+      verEl.textContent = 'versiune nouă — se reîncarcă…';
+      setTimeout(() => location.reload(), 600);
+    }
+  } catch (e) { /* offline: rămânem pe ce avem */ }
+}
+setInterval(checkVersion, 15000);
+addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 
 // ─────────────────────────── comenzi pe ecran ─────────────────────────
 let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
