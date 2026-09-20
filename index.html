@@ -83,6 +83,9 @@
      împrăștie pe tot ecranul, deci au pânza lor, cât fereastra */
   #full { position: fixed; inset: 0; z-index: 1; pointer-events: none;
           mix-blend-mode: screen }
+  /* apa își desenează propriul cer și propriul bazin, deci e o SCENĂ opacă, nu un
+     halo: fără `screen`, altfel fundalul paginii ar transpărea prin apă */
+  #water { position: fixed; inset: 0; z-index: 1; pointer-events: none }
   .hidden { display: none !important }
   /* MilkDrop: și la răsfoire, și la presetul fixat — o pânză PĂTRATĂ cu latura
      max(lățime, înălțime), centrată. E „cover", nu „fit": acoperă ecranul în
@@ -167,7 +170,9 @@
         fill="#a06bff" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>
 </svg>
 <canvas id="full" class="hidden"></canvas>
+<canvas id="water" class="hidden"></canvas>
 <canvas id="md" class="hidden"></canvas>
+<script src="water.js"></script>
 
 <div id="ui">
   <div id="chips"></div>
@@ -798,9 +803,13 @@ const FORMULAS = [
           const puff = 0.30 + 0.70 * Math.pow(Math.max(0,
                         Math.sin(t * 1.45 + side * Math.PI * 0.7)), 4);
           const g = CTX.createRadialGradient(cx, cy, rb * 0.2, cx, cy, rb * 2.1);
-          // în tăcere nu se degajă nimic: ceața apare doar pe activitate
-          g.addColorStop(0.00, `hsla(${hue}, 88%, 60%, ${(0.006 + 0.13 * levelNow) * puff})`);
-          g.addColorStop(0.45, `hsla(${hue}, 88%, 58%, ${(0.002 + 0.06 * levelNow) * puff})`);
+          // Termenul CONSTANT e podeaua de repaus, cel cu levelNow e vocea. Prima
+          // variantă degaja ceață tot timpul, uniform; a doua a legat-o strict de
+          // voce, dar cu podeaua atât de jos (0.006) bilele păreau moarte în
+          // liniște. Acum podeaua e de ~6× mai mare — cât să se vadă un firicel —
+          // iar câștigul pe voce a rămas neatins, deci la voce tare arată identic.
+          g.addColorStop(0.00, `hsla(${hue}, 88%, 60%, ${(0.035 + 0.13 * levelNow) * puff})`);
+          g.addColorStop(0.45, `hsla(${hue}, 88%, 58%, ${(0.014 + 0.06 * levelNow) * puff})`);
           g.addColorStop(1.00, `hsla(${hue}, 85%, 60%, 0)`);
           CTX.beginPath(); CTX.arc(cx, cy, rb * 2.1, 0, Math.PI * 2);
           CTX.fillStyle = g; CTX.fill();
@@ -879,7 +888,9 @@ const FORMULAS = [
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
   { name: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true },
   { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)' },
-  { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast' },
+  // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
+  // presetului rămâne intactă
+  { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.70 },
   { name: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
   { name: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
   { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.33 },
@@ -920,6 +931,10 @@ const FORMULAS = [
       orbSC.globalAlpha = 1;
       orbBloom(0.95, 0.40);
   }},
+  // ── apa: singurul efect cu pânză proprie ───────────────────────────────────
+  // E o SCENĂ opacă (cer + bazin), nu un halo aditiv, deci nu poate sta pe #full,
+  // care se compune cu `screen`. Codul stă în water.js — 230 de linii inutile aici.
+  { name: 'apă — comete oglindite în apa de jos', water: true },
 ];
 
 
@@ -987,6 +1002,24 @@ function plainLayer(drawFn) {
   fctx.restore();
 }
 
+// ── apa: pânză proprie, opacă, condusă de analizorul paginii ────────────────
+const waterCv = document.getElementById('water');
+const waterCtx = waterCv.getContext('2d', { alpha: false });
+// grave = treimea de jos a spectrului, înalte = treimea de sus — exact criteriul
+// din drawOrbits, ca efectele să reacționeze la fel la aceeași voce
+function bandThirds() {
+  let bass = 0, treble = 0;
+  for (let i = 0; i < NB / 3; i++) bass += band[i];
+  for (let i = (NB * 2 / 3) | 0; i < NB; i++) treble += band[i];
+  return { bass: bass / (NB / 3), treble: treble / (NB / 3) };
+}
+function drawWater(t) {
+  if (!window.waterScene) return;
+  const { bass, treble } = bandThirds();
+  // centrul = centrul ecranului + plimbarea, adică vârful cursorului desenat
+  waterScene.draw(waterCv, waterCtx, t, levelNow, bass, treble,
+                  innerWidth / 2 + walkX, innerHeight / 2 + walkY, dpr);
+}
 
 // ── modul MilkDrop: presetele reale, încărcate la cerere ─────────────────────
 // Scripturile (≈1 MB) se aduc abia când apeși butonul, ca pagina să rămână ușoară
@@ -1031,6 +1064,7 @@ async function pinPreset(name, scale, fade) {
   mdCanvas.classList.toggle('fade', !!fade);
   mdCanvas.classList.remove('hidden');
   full.classList.add('hidden');
+  waterCv.classList.add('hidden');
   layout();
   viz.loadPreset(mdPresets[name], 0.6);
   return true;
@@ -1181,7 +1215,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:58:47 fbfad7b';
+const BUILD = '17:04:15 dbce37d';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1261,11 +1295,14 @@ const t0 = performance.now();
   drawBars();
   const F = FORMULAS[fIdx];
   const md = mdOn || pinned;
-  full.classList.toggle('hidden', md || !!F.preset);
+  full.classList.toggle('hidden', md || !!F.preset || !!F.water);
+  waterCv.classList.toggle('hidden', md || !F.water);
   if (md && viz) {
     viz.render();
   } else if (F.preset) {
     // presetul încă se încarcă: nu are draw(), deci nu desenăm nimic în acest cadru
+  } else if (F.water) {
+    drawWater(t);
   } else {
     F.draw(t);                 // fiecare efect își ia singur stratul (tunnel / plain)
   }
