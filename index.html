@@ -48,11 +48,64 @@
   #mic.live { border-color: var(--line); background: rgba(10,14,19,.6); color: var(--dim);
               font-weight: 400; font-size: 12px; padding: 7px 14px }
   #mic.bad { border-color: #7a3a33; color: #ff9b8a }
+  /* fundal de IDE: ca să judeci cum compune halo-ul peste o aplicație reală,
+     nu peste un gradient curat. Se comută din butonul din colț. */
+  #ide { position: fixed; inset: 0; z-index: 0; display: none; overflow: hidden;
+         background: #1e1f22; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace }
+  body.ide #ide { display: block }
+  body.ide::before { display: none }
+  #ide .tabs { height: 30px; background: #2b2d30; border-bottom: 1px solid #1e1f22;
+               display: flex; align-items: center; gap: 1px; padding: 0 6px; color: #9da0a8 }
+  #ide .tab { padding: 5px 10px; border-radius: 5px 5px 0 0; font-size: 11px }
+  #ide .tab.on { background: #1e1f22; color: #dfe1e5 }
+  #ide .body { display: flex; height: calc(100% - 30px) }
+  #ide .gutter { width: 34px; padding: 6px 6px 0 0; text-align: right; color: #4b5059;
+                 background: #1e1f22; flex: 0 0 auto }
+  #ide .code { padding: 6px 10px; color: #bcbec4; white-space: pre; flex: 1 1 auto }
+  #ide .k { color: #cf8e6d } #ide .s { color: #6aab73 } #ide .c { color: #7a7e85 }
+  #ide .t { color: #bcbec4 } #ide .n { color: #2aacb8 } #ide .f { color: #56a8f5 }
+  #bg { position: fixed; right: 12px; top: calc(var(--pad-t) + 10px); z-index: 6;
+        padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+        background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
   /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
   #bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 46px }
   #bars div { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
               background: linear-gradient(#7fe3ff, #23566f) }
 </style>
+
+<div id="ide">
+  <div class="tabs">
+    <div class="tab on">VoiceHalo.java</div><div class="tab">Ring.java</div><div class="tab">Audio.java</div>
+  </div>
+  <div class="body">
+    <div class="gutter">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20<br>21<br>22<br>23<br>24<br>25<br>26<br>27<br>28</div>
+    <div class="code"><span class="k">package</span> ro.victorrentea.halo;
+
+<span class="k">import</span> javax.sound.sampled.*;
+
+<span class="c">/** Inelul care ascultă microfonul. */</span>
+<span class="k">public class</span> <span class="t">VoiceHalo</span> {
+
+    <span class="k">private final</span> <span class="t">float</span>[] wave = <span class="k">new</span> <span class="t">float</span>[<span class="n">2048</span>];
+    <span class="k">private</span> <span class="t">double</span> idleMix = <span class="n">1.0</span>;
+
+    <span class="k">public void</span> <span class="f">render</span>(<span class="t">double</span> t) {
+        <span class="k">for</span> (<span class="t">int</span> i = <span class="n">0</span>; i &lt; wave.length; i++) {
+            <span class="t">double</span> u = (<span class="t">double</span>) i / wave.length;
+            <span class="t">double</span> r = radius + amp * <span class="f">abs</span>(wave[i]);
+            <span class="f">plot</span>(<span class="f">cos</span>(u * TAU) * r, <span class="f">sin</span>(u * TAU) * r);
+        }
+    }
+
+    <span class="c">// în tăcere amplitudinea e zero, deci rămâne cerc</span>
+    <span class="k">private</span> <span class="t">double</span> <span class="f">amplitude</span>() {
+        <span class="k">return</span> live * (<span class="n">1</span> - idleMix);
+    }
+}
+</div>
+  </div>
+</div>
+<button id="bg">fundal: IDE</button>
 
 <div id="wrap"><canvas id="c"></canvas></div>
 
@@ -215,7 +268,8 @@ const eAt = u => e(u * (NB - 1));
 // ci o oscilație amplă și domoală. Peste tot se aplică și o inerție: forma
 // desenată urmărește ținta cu întârziere, deci rămâne „un pic în urmă".
 const SHAPE_N = 512;
-const SHAPE = new Float32Array(SHAPE_N);
+const SHAPE = new Float32Array(SHAPE_N);       // cu undă proprie în liniște
+const LIVE  = new Float32Array(SHAPE_N);       // STRICT din voce: în tăcere → 0
 let idleMix = 1;                                  // 1 = liniște, 0 = vorbire
 function idleWave(u, t) {
   return 0.52 * Math.sin(u * Math.PI * 2 * 3 + t * 0.42)
@@ -230,9 +284,13 @@ function updateShape(t) {
     const idle = 0.42 * Math.abs(idleWave(u, t));
     const target = live * (1 - idleMix) + idle * idleMix;
     SHAPE[i] += (target - SHAPE[i]) * 0.12;       // inerția
+    LIVE[i]  += (live   - LIVE[i])  * 0.12;
   }
 }
 const vs = u => SHAPE[Math.min(SHAPE_N - 1, Math.max(0, (u * SHAPE_N) | 0))] || 0;
+// vl = forma DOAR din voce. În tăcere e zero, deci inelul rămâne cerc perfect —
+// exact ce lipsea la 1 și la inelul de blocuri, care se deformau de la sine.
+const vl = u => LIVE[Math.min(SHAPE_N - 1, Math.max(0, (u * SHAPE_N) | 0))] || 0;
 const vAbs = vs;                                   // efectele vechi trec prin aceeași formă
 
 // ── unda ruptă în conținut JOS și SUS (folosită de oscilograme) ─────────────
@@ -296,7 +354,8 @@ function trailLayer({ DECAY = 0.90, ZOOM = 1.008, TWIST = 0.002 }, drawFn) {
 }
 
 // ── inelul MilkDrop ──────────────────────────────────────────────────────────
-function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = null, SPIN = 0.12 }) {
+function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = null, SPIN = 0.12, LIVE_ONLY = false }) {
+  const amp = LIVE_ONLY ? vl : vs;
   const px = fb[0].c.width, half = px / 2;
   const src = fb[fbCur], dst = fb[1 - fbCur];
   dst.x.setTransform(1, 0, 0, 1, 0, 0);
@@ -315,7 +374,7 @@ function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = nul
   for (let k = 0; k <= SEGS; k++) {
     const i = k / SEGS, th = i * Math.PI * 2 + t * SPIN;   // + = sensul acelor de ceas
     const seam = Math.max(0, (i - 0.9) / 0.1);
-    const sample = vAbs(i) * (1 - seam) + vAbs(0) * seam;
+    const sample = amp(i) * (1 - seam) + amp(0) * seam;
     const r = half * (R0 + AMP * sample);
     const x = half + Math.cos(th) * r, y = half + Math.sin(th) * r;
     k ? dst.x.lineTo(x, y) : dst.x.moveTo(x, y);
@@ -431,7 +490,9 @@ function orbSize(px) {
   orbMipB.width = orbMipB.height = Math.max(1, Math.round(px / ORB.BLOOM_WIDE));
   for (const c of [orbSC, orbMA, orbMB]) { c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'low'; }
 }
-function drawOrbits(t) {
+function drawOrbits(t, density = 1) {
+  const used = Math.max(3, Math.round(orbStrands.length * density));
+  const gain = density < 1 ? 0.55 : 1;
   const px = Math.round(R * 2 * dpr);
   orbSize(px);
   const dt = Math.min(0.05, orbLast ? t - orbLast : 0.016); orbLast = t;
@@ -453,7 +514,8 @@ function drawOrbits(t) {
   orbSC.globalCompositeOperation = 'lighter';
   const spinMul = 1 + ORB.A_SPIN * level;
 
-  for (const st of orbStrands) {
+  for (let si = 0; si < used; si++) {
+    const st = orbStrands[si];
     const famDrive = st.family === 0 ? 1 + 0.55 * treble : 1 + 0.55 * bass;
     st.theta += st.spin * spinMul * famDrive * dt;
     const azim = st.azimuth + ORB.PRECESS * t * (st.family === 0 ? 1 : -0.7);
@@ -494,7 +556,7 @@ function drawOrbits(t) {
       const glowA = (ORB.GLOW_A_FAR + (ORB.GLOW_A_NEAR - ORB.GLOW_A_FAR) * depth) * taper * bright * innerFade;
       const coreA = (ORB.CORE_A_FAR + (ORB.CORE_A_NEAR - ORB.CORE_A_FAR) * Math.pow(depth, 1.6)) * taper * bright * innerFade;
       const gm = (depth > 0.5 ? ORB.GLOW_NEAR : ORB.GLOW_FAR) * size;
-      orbSC.globalAlpha = Math.min(1, glowA);
+      orbSC.globalAlpha = Math.min(1, glowA * (density < 1 ? 0.45 : 1));
       orbSC.drawImage(spr.blob, cx + X - gm / 2, cy + Y - gm / 2, gm, gm);
       orbSC.globalAlpha = Math.min(1, coreA);
       orbSC.drawImage(spr.sq, cx + X - size / 2, cy + Y - size / 2, size, size);
@@ -502,19 +564,40 @@ function drawOrbits(t) {
   }
   orbSC.globalAlpha = 1;
 
-  // bloom ieftin: două nivele de mip, în loc de ctx.filter (de ~4× mai scump)
+  orbBloom(ORB.BLOOM_G_WIDE * gain, ORB.BLOOM_G_TIGHT * gain);
+}
+
+// bloom ieftin: două nivele de mip, în loc de ctx.filter (de ~4× mai scump)
+function orbBloom(gWide, gTight) {
   orbMA.clearRect(0, 0, orbMipA.width, orbMipA.height);
   orbMA.drawImage(orbScene, 0, 0, orbMipA.width, orbMipA.height);
   orbMB.clearRect(0, 0, orbMipB.width, orbMipB.height);
   orbMB.drawImage(orbScene, 0, 0, orbMipB.width, orbMipB.height);
-
   lctx.save();
   lctx.translate(-R, -R);
   lctx.globalCompositeOperation = 'lighter';
-  lctx.globalAlpha = ORB.BLOOM_G_WIDE;  lctx.drawImage(orbMipB, 0, 0, R * 2, R * 2);
-  lctx.globalAlpha = ORB.BLOOM_G_TIGHT; lctx.drawImage(orbMipA, 0, 0, R * 2, R * 2);
-  lctx.globalAlpha = 1;                 lctx.drawImage(orbScene, 0, 0, R * 2, R * 2);
+  lctx.globalAlpha = gWide;  lctx.drawImage(orbMipB, 0, 0, R * 2, R * 2);
+  lctx.globalAlpha = gTight; lctx.drawImage(orbMipA, 0, 0, R * 2, R * 2);
+  lctx.globalAlpha = 1;      lctx.drawImage(orbScene, 0, 0, R * 2, R * 2);
   lctx.restore();
+}
+
+// Lumină care pleacă STRICT spre exterior: un sector de inel exact peste unghiurile
+// segmentului, umplut cu un gradient radial care se stinge în afară. Marginile
+// unghiulare sunt tăiate net, deci între două segmente rămâne negru absolut —
+// nimic nu se scurge tangențial spre vecin, cum se întâmpla cu un contur suflat.
+function radialGlow(a0, a1, rIn, rOut, hue, alpha) {
+  const x = CTX;
+  const g = x.createRadialGradient(0, 0, rIn, 0, 0, rOut);
+  g.addColorStop(0.00, `hsla(${hue % 360}, 90%, 62%, ${alpha})`);
+  g.addColorStop(0.35, `hsla(${hue % 360}, 90%, 62%, ${alpha * 0.45})`);
+  g.addColorStop(1.00, `hsla(${hue % 360}, 90%, 62%, 0)`);
+  x.beginPath();
+  x.arc(0, 0, rIn, a0, a1);
+  x.arc(0, 0, rOut, a1, a0, true);
+  x.closePath();
+  x.fillStyle = g;
+  x.fill();
 }
 
 // vârf stins: segmentul se pierde pe ultimele 25% din lungime, în loc să se taie brusc
@@ -534,46 +617,15 @@ function spike(ax, ay, bx, by, hue, width, alpha) {
 }
 
 const FORMULAS = [
-  { name: 'MilkDrop strâns — lent, cu inerție, se rotește', rest: 0.66, draw(t) {
-      // rotația vizibilă a întregului desen, în sensul acelor de ceasornic
+  { name: 'inel de undă — cerc perfect în tăcere, se rotește', rest: 0.66, draw(t) {
+      // nu mai folosește unda proprie pentru FORMĂ: în liniște amplitudinea e zero,
+      // deci rămâne cerc. Ce continuă în tăcere e rotația, nu deformarea.
       milkdropRing(t, { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.52, AMP: 0.26,
-                        W: 1.1, SPIN: 0.30 });
-  }},
-  { name: 'sârmă poligonală — buclă zimțată, linie groasă', rest: 0.70, draw(t) {
-      milkdropRing(t, { ZOOM: 1.009, TWIST: -0.004, DECAY: 0.89, R0: 0.52, AMP: 0.24,
-                        W: 2.0, SEGS: 30, HUE: 205, SPIN: 0.12 });
-  }},
-  { name: 'oscilogramă dublă — grav albastru / înalt roșu', rest: 0.68, draw(t) {
-      // albastrul urmărește media alunecătoare a undei (partea gravă), roșul ce
-      // rămâne după scăderea ei (consoanele). În liniște amândouă respiră pe unda proprie.
-      splitWave();
-      trailLayer({ DECAY: 0.86, ZOOM: 1.006, TWIST: 0.0015 }, () => {
-        for (const kind of [0, 1]) {
-          const src = kind ? HIGH : LOW;
-          const gain = kind ? 2.6 : 1.0;
-          const base = kind ? 0.50 : 0.545;
-          const hue  = kind ? 352 : 208;
-          const pts = [], N = 256;
-          for (let i = 0; i <= N; i++) {
-            const u = (i % N) / N;
-            const th = u * Math.PI * 2 + t * (kind ? -0.10 : 0.10);
-            const live = Math.min(1, Math.abs(src[i % N]) * gain);
-            const amp = live * (1 - idleMix) + vs(u) * 1.6 * idleMix;
-            const r = R * (base + 0.16 * amp);
-            pts.push([Math.cos(th) * r, Math.sin(th) * r]);
-          }
-          fogPath(pts, true, hue, 16, .05, 0.03);
-          strokePath(pts, true, hue, 1.6, .9);
-        }
-      });
+                        W: 1.1, SPIN: 0.30, LIVE_ONLY: true });
   }},
   { name: 'oscilogramă mov — albastrul și roșul suprapuse', rest: 0.66, draw(t) {
-      // Ca să IASĂ mov, cele două trebuie să se suprapună, nu să stea pe raze
-      // diferite: aceeași rază de repaus, aceeași grosime mare, doar modulația
-      // diferă. Peste tot unde coincid, aditivul le duce în violet, iar unde una
-      // sare peste cealaltă rămâne albastru curat sau roșu curat.
       splitWave();
-      trailLayer({ DECAY: 0.84, ZOOM: 1.007, TWIST: 0.002 }, () => {
+      trailLayer({ DECAY: 0.80, ZOOM: 1.007, TWIST: 0.002 }, () => {
         for (const kind of [0, 1]) {
           const src = kind ? HIGH : LOW;
           const gain = kind ? 2.4 : 1.1;
@@ -584,81 +636,53 @@ const FORMULAS = [
             const th = u * Math.PI * 2 + t * (kind ? -0.06 : 0.06);
             const live = Math.min(1, Math.abs(src[i % N]) * gain);
             const amp = live * (1 - idleMix) + vs(u) * 1.5 * idleMix;
-            const r = R * (0.52 + 0.15 * amp);           // ACEEAȘI rază de repaus
+            const r = R * (0.52 + 0.15 * amp);
             pts.push([Math.cos(th) * r, Math.sin(th) * r]);
           }
-          fogPath(pts, true, hue, 26, .05, 0.02);
-          strokePath(pts, true, hue, 4.2, .62);           // groase, ca să se amestece
+          fogPath(pts, true, hue, 22, .030, 0.02);      // intensitate redusă
+          strokePath(pts, true, hue, 3.0, .42);
         }
       });
   }},
-  { name: 'coroană — bare de lățime fixă, mereu prezente', rest: 0.66, draw(t) {
-      // barele creșteau și în lățime: acum lățimea e fixă și doar înălțimea
-      // răspunde. Și există mereu un rând de segmente, chiar și în liniște.
+  { name: 'coroană — numai barele, fără cerc fix', rest: 0.66, draw(t) {
+      // cercul galben care stătea fixat a fost scos; rămân doar barele
       const r0 = R * 0.48, N = 96, WIDTH = 3.4;
-      const ring = [];
-      for (let i = 0; i <= 200; i++) { const th = i / 200 * Math.PI * 2;
-        const r = r0 * (1 + 0.05 * vs(i / 200));
-        ring.push([Math.cos(th) * r, Math.sin(th) * r]); }
-      fogPath(ring, true, 40 + t * 5, 22, .045, 0.03);
-      strokePath(ring, true, 40 + t * 5, 1.8, .9);
       for (let k = 0; k < N; k++) {
         const u = k / N, th = u * Math.PI * 2 - t * 0.14;
         const en = eAt((k * 7 % N) / N);
-        const len = R * (0.022 + 0.087 * en);             // 0.022 = bara de repaus
+        const len = R * (0.022 + 0.087 * en);
         const hue = 32 + t * 5 + en * 40;
         spike(Math.cos(th) * r0, Math.sin(th) * r0,
               Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
               hue, WIDTH, .40 + .5 * en);
       }
   }},
-  { name: 'spițe pe spectru — dese, groase, cu vârf stins', rest: 0.62, draw(t) {
-      // de două ori mai multe spițe (distanța scade cu 50%), de două ori mai groase,
-      // cu vârful stins pe ultimele 25%. Pauzele dintre semicercuri erau zone moarte
-      // supărătoare — au rămas ~2°, cât să se citească despărțirea.
-      const r0 = R * 0.46, GAP = 0.04, REST = 0.016, M = NB * 2;
-      for (const side of [0, 1]) {
-        for (let k = 0; k < M; k++) {
-          const u = k / (M - 1);
-          const th = (side ? Math.PI : 0) + GAP / 2 + u * (Math.PI - GAP) + t * 0.06;
-          const en = eAt(u);
-          const len = R * (REST + 0.10 * en);
-          const hue = 190 + u * 170 + t * 8;
-          spike(Math.cos(th) * r0, Math.sin(th) * r0,
-                Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
-                hue, 4.0, .45 + .5 * en);
-        }
-      }
-      const ring = [];
-      for (let k = 0; k <= 180; k++) { const th = k / 180 * Math.PI * 2;
-        ring.push([Math.cos(th) * r0, Math.sin(th) * r0]); }
-      strokePath(ring, true, 200 + t * 8, 1, .30);
-  }},
-  { name: 'inel de segmente — fără linie, fără goluri', rest: 0.64, draw(t) {
-      // varianta din poză: niciun cerc continuu, niciun gol — doar un rând de
-      // segmente scurte de jur împrejur, vizibile tot timpul, care se alungesc
-      // pe voce. Culoarea curge lin pe circumferință (mov → roz → galben → albastru).
+  { name: 'inel de segmente — nuanța se închide fără cusătură', rest: 0.64, draw(t) {
+      // nuanța parcurgea doar 170° și, la închiderea cercului, portocaliul ajungea
+      // lipit de albastru. Acum face un tur COMPLET de 360°, deci ultimul segment
+      // are exact nuanța primului și cusătura dispare.
       const r0 = R * 0.50, M = 150, REST = 0.020;
       for (let k = 0; k < M; k++) {
         const u = k / M, th = u * Math.PI * 2 + t * 0.10;
         const en = eAt((u * 2) % 1);
         const len = R * (REST + 0.115 * en);
-        const hue = 250 + 170 * u + t * 6;
+        const hue = 250 + 360 * u + t * 6;
         spike(Math.cos(th) * r0, Math.sin(th) * r0,
               Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
               hue, 3.6, .55 + .4 * en);
       }
   }},
-  { name: 'lanț de fulgere — neon îndreptat spre exterior', rest: 0.74, draw(t) {
-      // ceața nu mai bate și spre interior: traseul ei e împins în afară exact cu
-      // jumătate din propria lățime, deci marginea ei interioară stă fix pe fulger.
-      // În golurile dintre arce rămâne un halou tot spre exterior, care vibrează pe voce.
-      trailLayer({ DECAY: 0.74, ZOOM: 1.012, TWIST: 0.0025 }, () => {
+  { name: 'lanț de fulgere — lumina pleacă doar radial', rest: 0.74, draw(t) {
+      // haloul nu mai e un contur suflat (care se scurgea și tangențial, spre
+      // segmentul vecin), ci un sector de inel exact peste unghiurile arcului.
+      // Între două arce, sectorul întreg — până la periferie — rămâne negru.
+      trailLayer({ DECAY: 0.72, ZOOM: 1.012, TWIST: 0.0025 }, () => {
         const M = 7, SEG = 20, r0 = R * 0.54;
-        const outward = w => w / (2 * R * 0.54);        // ceață doar în afară
         for (let m = 0; m < M; m++) {
           const a0 = (m / M) * Math.PI * 2 + t * 0.20;
           const span = (Math.PI * 2 / M) * 0.80;
+          const hue = 195 + m * 6 + t * 12;
+          radialGlow(a0, a0 + span, r0 * 1.02, r0 * 1.26, hue, 0.16 + 0.22 * levelNow);
           const pts = [];
           for (let k = 0; k <= SEG; k++) {
             const u = k / SEG, th = a0 + span * u;
@@ -666,28 +690,22 @@ const FORMULAS = [
             const r = r0 * (1 + 0.17 * j + 0.02 * Math.sin(t * 3.1 + m * 1.7));
             pts.push([Math.cos(th) * r, Math.sin(th) * r]);
           }
-          const hue = 195 + m * 6 + t * 12;
-          fogPath(pts, false, hue, 40, .022, outward(40));
-          fogPath(pts, false, hue, 18, .040, outward(18));
           strokePath(pts, false, hue, 3.4, .92);
-          // haloul din gol: un arc scurt, doar în afară, care pulsează pe voce
-          const gapPts = [];
-          for (let k = 0; k <= 8; k++) {
-            const th = a0 + span + (Math.PI * 2 / M) * 0.20 * (k / 8);
-            gapPts.push([Math.cos(th) * r0, Math.sin(th) * r0]);
-          }
-          fogPath(gapPts, false, hue + 20, 26, .03 + .10 * levelNow, outward(26));
         }
       });
   }},
-  { name: 'orbite de particule — reconstrucția din film', rest: 1.00, draw(t) {
-      drawOrbits(t);
+  { name: 'orbite de particule — din film, la jumătate', rest: 2.00, draw(t) {
+      drawOrbits(t, 1);
   }},
-  { name: 'inel de blocuri — unda desenată cu mărgele pătrate', rest: 0.50, draw(t) {
-      // Ce aduce filmul nu e mișcarea, ci TEXTURA: lanțuri de mărgele pătrate în
-      // loc de linie continuă. Aici e chiar inelul de undă de la 1, desenat cu
-      // aceleași sprite-uri ca orbitele — pătrat crocant peste un blob moale,
-      // aditiv, cu paleta cyan→violet→magenta care curge pe circumferință.
+  { name: 'orbite rare — jumătate din fire, blocuri clare', rest: 2.00, draw(t) {
+      // aceeași mecanică, dar cu jumătate din fire și fără aura groasă: blocurile
+      // se citesc individual, în loc să se topească într-un ghem strălucitor.
+      drawOrbits(t, 0.5);
+  }},
+  { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
+      // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
+      // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
+      // Sclipirea rămâne: mărimea blocului respiră chiar și în liniște.
       const px = Math.round(R * 2 * dpr);
       orbSize(px);
       const half = px / 2, M = 132;
@@ -696,55 +714,28 @@ const FORMULAS = [
       orbSC.globalCompositeOperation = 'lighter';
       for (let k = 0; k < M; k++) {
         const u = k / M;
-        const th = u * Math.PI * 2 + t * 0.22;           // sensul acelor de ceas
-        const amp = vs(u);
+        const th = u * Math.PI * 2 + t * 0.22;
+        const amp = vl(u);                                  // zero în tăcere
         const r = half * (0.50 + 0.17 * amp);
         const X = half + Math.cos(th) * r, Y = half + Math.sin(th) * r;
-        // mărimea blocului urmează local amplitudinea, ca în film unde mărgelele
-        // din față sunt vizibil mai mari decât cele din spate
-        const size = (4.2 + 8.0 * Math.min(1, amp * 1.6)) * dpr;
-        const hue = (u * 1.0 + t * 0.05) % 1;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
+        const size = (4.2 + 1.2 * shimmer + 8.0 * Math.min(1, amp * 1.6)) * dpr;
+        const hue = (u + t * 0.05) % 1;
         const spr = orbSprites[Math.min(ORB.STEPS - 1, (hue * ORB.STEPS) | 0)];
         const gm = size * 2.1;
-        orbSC.globalAlpha = 0.20 + 0.25 * amp;
+        orbSC.globalAlpha = 0.18 + 0.27 * amp;
         orbSC.drawImage(spr.blob, X - gm / 2, Y - gm / 2, gm, gm);
         orbSC.globalAlpha = 0.55 + 0.45 * Math.min(1, amp * 1.5);
         orbSC.drawImage(spr.sq, X - size / 2, Y - size / 2, size, size);
       }
       orbSC.globalAlpha = 1;
-      orbMA.clearRect(0, 0, orbMipA.width, orbMipA.height);
-      orbMA.drawImage(orbScene, 0, 0, orbMipA.width, orbMipA.height);
-      orbMB.clearRect(0, 0, orbMipB.width, orbMipB.height);
-      orbMB.drawImage(orbScene, 0, 0, orbMipB.width, orbMipB.height);
-      lctx.save();
-      lctx.translate(-R, -R);
-      lctx.globalCompositeOperation = 'lighter';
-      lctx.globalAlpha = 0.95; lctx.drawImage(orbMipB, 0, 0, R * 2, R * 2);
-      lctx.globalAlpha = 0.40; lctx.drawImage(orbMipA, 0, 0, R * 2, R * 2);
-      lctx.globalAlpha = 1;    lctx.drawImage(orbScene, 0, 0, R * 2, R * 2);
-      lctx.restore();
-  }},
-  { name: 'inel dublu contrarotativ — lent, cu ceață', rest: 0.70, draw(t) {
-      trailLayer({ DECAY: 0.79, ZOOM: 1.014, TWIST: 0.001 }, () => {
-        for (const sgn of [1, -1]) {
-          const N = 320, pts = [];
-          const base = 0.50 + (sgn > 0 ? 0.045 : 0);
-          for (let k = 0; k <= N; k++) {
-            const i = k / N, th = i * Math.PI * 2 + sgn * t * 0.10;
-            const r = R * (base + 0.17 * vs((i + (sgn > 0 ? 0 : 0.37)) % 1));
-            pts.push([Math.cos(th) * r, Math.sin(th) * r]);
-          }
-          const hue = sgn > 0 ? 196 + t * 7 : 268 + t * 7;
-          fogPath(pts, true, hue, 22, .028, 0.05);
-          strokePath(pts, true, hue, 1.5, .85);
-        }
-      });
+      orbBloom(0.95, 0.40);
   }},
 ];
 
 // ─────────────────────────── comenzi pe ecran ─────────────────────────
 let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
-const FAVS = new Set([0, 1, 4, 7]); // cele lăudate la ultimul review, marcate cu ★
+const FAVS = new Set([3, 4, 7]);    // cele lăudate la ultimul review, marcate cu ★
 const chips = document.getElementById('chips');
 FORMULAS.forEach((f, i) => {
   const b = document.createElement('button');
@@ -770,6 +761,11 @@ function poke() {
   clearTimeout(fadeTimer);
   fadeTimer = setTimeout(() => ui.classList.add('faded'), 4500);
 }
+document.getElementById('bg').addEventListener('click', ev => {
+  ev.stopPropagation();
+  document.body.classList.toggle('ide');
+  ev.target.textContent = document.body.classList.contains('ide') ? 'fundal: gradient' : 'fundal: IDE';
+});
 addEventListener('pointerdown', poke);
 poke();
 
