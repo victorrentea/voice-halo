@@ -761,7 +761,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'Crown', desc: 'coroană — numai barele, fără cerc fix', scale: 0.1596, draw(t) {
+  { name: 'Crown', desc: 'coroană — numai barele, fără cerc fix', scale: 0.1915, draw(t) {
       // cercul galben care stătea fixat a fost scos; rămân doar barele
       const R = rad(this.scale);
       plainLayer(() => {
@@ -777,7 +777,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'Prism', desc: 'inel de segmente — nuanța se închide fără cusătură', scale: 0.1534, draw(t) {
+  { name: 'Prism', desc: 'inel de segmente — nuanța se închide fără cusătură', scale: 0.1841, draw(t) {
       // nuanța parcurgea doar 170° și, la închiderea cercului, portocaliul ajungea
       // lipit de albastru. Acum face un tur COMPLET de 360°, deci ultimul segment
       // are exact nuanța primului și cusătura dispare.
