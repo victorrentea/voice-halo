@@ -930,20 +930,20 @@ const FORMULAS = [
   // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
   // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
-  { name: '• MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true },
-  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.70 },
+  { name: '• MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.5 },
+  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.35 },
   // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
   // presetului rămâne intactă
-  { name: '• MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.70 },
-  { name: '− MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
-  { name: '− MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
-  { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.33 },
-  { name: '★ MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
-  { name: '− MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
-  { name: '★ MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
+  { name: '• MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.35 },
+  { name: '− MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ', scale: 0.5 },
+  { name: '− MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa', scale: 0.5 },
+  { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.165 },
+  { name: '★ MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.5 },
+  { name: '− MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
+  { name: '★ MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
   // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
   // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
-  { name: '★ MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana' },
+  { name: '★ MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana', scale: 0.5 },
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.4, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
@@ -963,7 +963,8 @@ const FORMULAS = [
         const r = half * (0.35 + 0.12 * amp);   // diametru 70%
         const X = cx + Math.cos(th) * r, Y = cy + Math.sin(th) * r;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
-        const size = (4.2 + 1.2 * shimmer + 8.0 * Math.min(1, amp * 1.6)) * dpr;
+        // grosime dublă: la raza înjumătățită blocurile subțiri nu se mai întrețeseau
+        const size = (8.4 + 2.4 * shimmer + 16.0 * Math.min(1, amp * 1.6)) * dpr;
         const hue = (u + t * 0.05) % 1;
         const spr = orbSprites[Math.min(ORB.STEPS - 1, (hue * ORB.STEPS) | 0)];
         const gm = size * 2.1;
@@ -1277,7 +1278,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '17:58:35 d832097';
+const BUILD = '18:03:06 2a789b9';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
