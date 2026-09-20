@@ -46,14 +46,14 @@ vendorizată la un commit fixat.
 - [ ] **Fără limitare la 30 fps** — constantele de stingere sunt per cadru; un cap
       la 30 ar înjumătăți ceața dacă nu sunt legate întâi de timp.
 - [ ] **Energia nemăsurată** cu `powermetrics`.
-- [ ] **Lagoon** — scos din Swift la cererea lui, dar în galerie, capturat întreg,
-      i-a plăcut. De reconfirmat dacă rămâne scos.
+- ✅ **Lagoon scos definitiv** — „water dream e ce mi-a plăcut". Marcat − în pagină,
+      deci iese și din galerie; efectul cu apă de pe desktop e presetul, nu al nostru.
 
 ## Reguli care se aplică peste tot
 
 - Haloul se compune peste ecranul **viu**. Opacitate parțială e în regulă;
   umplere opacă sau instantaneu înghețat, nu.
-- Efectele marcate **−** nu se implementează: Petals, Silk, Nova, Royal, Mosaic.
+- Efectele marcate **−** nu se implementează: Petals, Silk, Nova, Royal, Mosaic, Lagoon.
 - Inelul de fulgere implicit rămâne **nativ și ieftin**, neatins.
 - 30 fps e suficient. Atenție: constantele de stingere sunt calibrate la 60 —
   la 30 urma se înjumătățește dacă nu sunt legate de timp.
