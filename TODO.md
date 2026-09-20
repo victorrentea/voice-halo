@@ -3,6 +3,18 @@
 Evidența cererilor lui Victor, ca să nu se piardă niciuna între review-uri.
 Ordinea e cronologică; ✅ = livrat și publicat.
 
+## Portul în Swift (Walkie Talkie)
+
+Protocolul de handoff: **fiecare predare e marcată cu un tag pe acest repo**, ca
+să se știe exact de la ce sursă s-a portat și ce a rămas de încorporat ulterior.
+
+| tag | commit | ce conține | stare |
+|---|---|---|---|
+| `swift-port-01` | `6717b17` | 8 efecte proprii + presetele fixate + modul MilkDrop + toggle-uri + cursor | portare lansată |
+
+Ce se schimbă **după** un tag intră în următoarea predare. Când mai polișăm aici,
+se pune un tag nou și se dă diff-ul dintre tag-uri agentului care portează.
+
 ## În lucru
 
 - [ ] **Efectul cu apă** (delegat unui subagent, 2026-09-20): apa stă în partea de
