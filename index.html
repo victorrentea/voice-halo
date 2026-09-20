@@ -939,15 +939,15 @@ const FORMULAS = [
   // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
   // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
-  { name: '• Tunnel', desc: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.5 },
+  { name: '• Tunnel', desc: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.42 },
   { name: 'Cauldron', desc: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.35 },
   // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
   // presetului rămâne intactă
-  { name: '• Tendrils', desc: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.35 },
+  { name: '• Tendrils', desc: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.7 },
   { name: '− Silk', desc: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ', scale: 0.5 },
   { name: '− Nova', desc: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa', scale: 0.5 },
-  { name: 'Snowflake', desc: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.165 },
-  { name: '★ Sparks', desc: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.5 },
+  { name: 'Snowflake', desc: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.66 },
+  { name: '★ Sparks', desc: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.75 },
   { name: '− Royal', desc: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
   { name: '− Mosaic', desc: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
   // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
@@ -1291,7 +1291,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '18:43:26 18f2224';
+const BUILD = '19:03:41 4cae6d0';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
