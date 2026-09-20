@@ -33,7 +33,11 @@
    ========================================================================== */
 const P = {
   /* ---- waterline -------------------------------------------------------- */
-  WATER_Y:            0.74,  // waterline as a fraction of viewport height (brief: 0.70-0.78)
+  WATER_Y:            0.80,  // waterline as a fraction of viewport height. Was 0.74; Victor
+                             // asked for the pool to take only the bottom fifth. Shallower pool
+                             // is safe for the reflection because REFLECT_SQUASH (0.42) means
+                             // 169 px of water still mirror ~400 px of sky — the band the
+                             // comets orbit in — so the pool never shows just empty sky.
 
   /* ---- reflection ------------------------------------------------------- */
   SKY_MARGIN:        56,     // CSS px of extra scene rendered off-screen left AND right.

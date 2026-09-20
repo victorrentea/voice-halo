@@ -38,7 +38,7 @@
           border: 1px solid var(--line); background: rgba(10,14,19,.72); color: var(--dim);
           font: 600 14px/1 ui-monospace, monospace; backdrop-filter: blur(8px) }
   .chip.on { border-color: #3c7fa6; color: #bfe6ff; background: rgba(20,44,60,.8) }
-  /* favoritele lui Victor: 5 (spițe pe spectru) și 7 (MilkDrop autentic) */
+  /* ★ pe pastilă pentru favoritele din review (vezi FAVS) */
   .chip.fav::after { content: "★"; font-size: 9px; vertical-align: super; opacity: .75 }
   #bottom { display: flex; flex-direction: column; gap: 8px; align-items: center }
   #label { color: var(--ink); font-size: var(--hud); text-align: center; padding: 0 8px;
@@ -666,6 +666,10 @@ function spike(ax, ay, bx, by, hue, width, alpha) {
   x.shadowBlur = 0; x.lineCap = 'round';
 }
 
+// Verdictele lui Victor stau în NUMELE efectului, nu într-un fișier separat: așa
+// se văd pe telefon, în linia de jos, și supraviețuiesc între sesiuni.
+//   ★ = îi place mult   • = „are mult potențial"   − = nu-i place
+// Ordinea NU se schimbă niciodată la un review — doar etichetele.
 const FORMULAS = [
   { name: 'inel de undă — cerc perfect în tăcere, se rotește', scale: 0.606, draw(t) {
       // nu mai folosește unda proprie pentru FORMĂ: în liniște amplitudinea e zero,
@@ -826,7 +830,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'raze ORB — petale rotitoare, fără flash', scale: 0.50, draw(t) {
+  { name: '− raze ORB — petale rotitoare, fără flash', scale: 0.50, draw(t) {
       // Din „ORB - Waaa". Presetul are TREI forme suprapuse (100 de laturi fiecare),
       // rotite cu viteze apropiate și una în sens invers: ang = q2, -1.05*q2 și
       // 0.899*q2 — de aici bătaia lentă dintre straturi. Culorile sunt chiar
@@ -886,20 +890,20 @@ const FORMULAS = [
   // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
   // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
-  { name: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true },
-  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)' },
+  { name: '• MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true },
+  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.70 },
   // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
   // presetului rămâne intactă
-  { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.70 },
-  { name: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
-  { name: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
+  { name: '• MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.70 },
+  { name: '− MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
+  { name: '− MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
   { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.33 },
-  { name: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
-  { name: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
-  { name: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
+  { name: '★ MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
+  { name: '− MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
+  { name: '★ MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
   // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
   // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
-  { name: 'MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana' },
+  { name: '★ MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana' },
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.80, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
@@ -1215,7 +1219,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '17:04:15 dbce37d';
+const BUILD = '17:05:52 f358841';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1235,7 +1239,7 @@ addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(
 
 // ─────────────────────────── comenzi pe ecran ─────────────────────────
 let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
-const FAVS = new Set([2, 3]);       // cele lăudate la ultimul review, marcate cu ★
+const FAVS = new Set([14, 16, 17]); // ★ din review: chain breaker, black tiles, fata morgana
 const chips = document.getElementById('chips');
 FORMULAS.forEach((f, i) => {
   const b = document.createElement('button');
