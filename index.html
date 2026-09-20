@@ -87,6 +87,9 @@
      de pe #wrap face negrul să dispară peste fundal */
   #md { -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
         mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%) }
+  /* preset fixat: pe toată fereastra, fără mască — ca să arate exact ca originalul */
+  #md.bleed { position: fixed; inset: 0; -webkit-mask-image: none; mask-image: none;
+              transform: scale(var(--mdScale, 1)); transform-origin: center center }
   /* Cursorul macOS, fix în centrul ECRANULUI (nu al pânzei): când halo-ul se
      plimbă, el rămâne pe loc, ca să se vadă unde va fi mouse-ul în realitate.
      Vârful e hotspot-ul, deci colțul din stânga-sus al glifei stă chiar pe centru.
@@ -249,9 +252,16 @@ function layout() {
   wrap.style.width = wrap.style.height = side + 'px';
   // butterchurn nu scrie singur atributele canvasului (rămân 300×150, adică imagine
   // decentrată și la altă scară); le punem noi înainte de setRendererSize
-  mdCanvas.style.width = mdCanvas.style.height = side + 'px';
-  mdCanvas.width = mdCanvas.height = px;
-  if (viz) viz.setRendererSize(px, px);
+  if (pinned) {
+    const w = Math.round(vw * dpr), h = Math.round(vh * dpr);
+    mdCanvas.style.width = vw + 'px'; mdCanvas.style.height = vh + 'px';
+    mdCanvas.width = w; mdCanvas.height = h;
+    if (viz) viz.setRendererSize(w, h);
+  } else {
+    mdCanvas.style.width = mdCanvas.style.height = side + 'px';
+    mdCanvas.width = mdCanvas.height = px;
+    if (viz) viz.setRendererSize(px, px);
+  }
   for (const f of fb) { f.c.width = f.c.height = px; }
 }
 addEventListener('resize', layout);
@@ -810,137 +820,72 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'tunel Geiss — urme concentrice pe tot ecranul', rest: 0.50, full: true, draw(t) {
-      // Copiat din presetul MilkDrop „Geiss - 3 layers (Tunnel Mix)": o undă
-      // circulară desenată ADITIV peste cadrul precedent mărit cu 3,3% (zoom=1.033
-      // în preset) — de acolo vin urmele care cresc concentric. Aici nu mai sunt
-      // ținute în pătratul halo-ului: pânza e cât ecranul, deci se împrăștie până
-      // la margini. Stingerea e mai rapidă decât în preset, cum ai cerut.
-      // pasul e mai mare decât în preset (1.033): acolo urmele stăteau într-un
-      // cadru mic, aici au tot ecranul de străbătut până se sting
-      tunnelLayer({ DECAY: 0.855, ZOOM: 1.062, TWIST: 0.0035 }, () => {
-        const base = Math.min(innerWidth, innerHeight) * 0.115;   // gaura ×2
-        const N = 360, pts = [];
-        for (let k = 0; k <= N; k++) {
-          const u = k / N, th = u * Math.PI * 2 + t * 0.18;
-          const seam = Math.max(0, (u - 0.9) / 0.1);
-          const amp = vs(u) * (1 - seam) + vs(0) * seam;
-          const r = base * (1 + 1.05 * amp);
-          pts.push([Math.cos(th) * r, Math.sin(th) * r]);
-        }
-        // în preset culoarea undei e împinsă pe roșu și plimbată pe cadre
-        const hue = (t * 26) % 360;
-        fogPath(pts, true, hue, 13, .10, 0.02);
-        strokePath(pts, true, hue, 2.2, .95);
-      });
-  }},
-  { name: 'cazan Geiss — panglici moi, pe tot ecranul', rest: 0.50, full: true, draw(t) {
-      // Copiat din „Geiss - Cauldron - painterly 2": undă circulară (wave_mode 1)
-      // cu warp, centru care derivă lent și culori plimbate de sinusoide — chiar
-      // formulele din preset: wave_r += .35*(.6*sin(3.98t)+.4*sin(11.047t)) etc.
-      // Împingerea e mică (zoom 1.014 în preset), deci ies panglici moi, nu tunel.
-      // Centrul derivă puțin, dar raza de repaus e mult mai mare decât deriva,
-      // așa că nimic nu ajunge peste mouse.
-      tunnelLayer({ DECAY: 0.93, ZOOM: 1.020, TWIST: 0.0018 }, () => {
+  { name: 'raze ORB — petale rotitoare, fără flash', rest: 0.50, full: true, draw(t) {
+      // Din „ORB - Waaa". Presetul are TREI forme suprapuse (100 de laturi fiecare),
+      // rotite cu viteze apropiate și una în sens invers: ang = q2, -1.05*q2 și
+      // 0.899*q2 — de aici bătaia lentă dintre straturi. Culorile sunt chiar
+      // sinusoidele lui: .5+.5*sin(.35*q2), .5+.5*sin(.578*q2), .5+.5*sin(.689*q2).
+      //
+      // SINGURUL efect din set căruia i se permite să treacă peste cursor — la
+      // cererea ta. Ce am scos e miezul: în preset petalele converg într-un punct
+      // și se adună într-un alb orbitor. Aici fiecare petală se STINGE spre centru
+      // printr-un gradient, deci razele trec, dar nu se aprinde nimic în mijloc.
+      tunnelLayer({ DECAY: 0.90, ZOOM: 1.0, TWIST: 0.0 }, () => {
         const S = Math.min(innerWidth, innerHeight);
-        const cx = S * 0.030 * (0.6 * Math.sin(0.374 * t) + 0.4 * Math.sin(0.294 * t));
-        const cy = S * 0.030 * (0.6 * Math.sin(0.393 * t) + 0.4 * Math.sin(0.223 * t));
-        const r0 = S * 0.165;
-        const r = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(3.980 * t) + 0.4 * Math.sin(11.047 * t))));
-        const g = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(0.835 * t) + 0.4 * Math.sin(1.081 * t))));
-        const bl = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(0.814 * t) + 0.4 * Math.sin(1.011 * t))));
-        const col = a => `rgba(${Math.max(0, Math.min(255, r))},${Math.max(0, Math.min(255, g))},` +
-                         `${Math.max(0, Math.min(255, bl))},${a})`;
-        const N = 420;
-        CTX.beginPath();
-        for (let k = 0; k <= N; k++) {
-          const u = k / N, th = u * Math.PI * 2 + t * 0.10;
-          const seam = Math.max(0, (u - 0.9) / 0.1);
-          const amp = vs(u) * (1 - seam) + vs(0) * seam;
-          // „warp": două lobi lenți care deformează inelul, ca în preset
-          const warp = 1 + 0.218 * 0.35 * Math.sin(3 * th + t * 0.6)
-                         + 0.218 * 0.20 * Math.sin(5 * th - t * 0.4);
-          const rr = r0 * warp * (1 + 0.75 * amp);
-          const x = cx + Math.cos(th) * rr, y = cy + Math.sin(th) * rr;
-          k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
-        }
-        CTX.closePath();
-        CTX.lineJoin = CTX.lineCap = 'round';
-        CTX.lineWidth = 16; CTX.strokeStyle = col(0.06); CTX.stroke();
-        CTX.lineWidth = 2.6; CTX.strokeStyle = col(0.85); CTX.stroke();
-      });
-  }},
-  { name: 'tendrile Aderrasi — panglici care se răsucesc', rest: 0.50, full: true, draw(t) {
-      // Copiat din „Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils".
-      // Ce-i dă aspectul nu e forma, ci PERSISTENȚA: decay 0.95 și un cadru care
-      // aproape nu se mișcă (zoom 0.9995), deci unda își pictează singură panglici
-      // pe măsură ce se rotește. Aici zoom-ul e ușor peste 1, nu sub: în preset
-      // cadrul se strânge spre centru, iar acolo stă mouse-ul.
-      tunnelLayer({ DECAY: 0.958, ZOOM: 1.005, TWIST: 0.0085 }, () => {
-        const S = Math.min(innerWidth, innerHeight);
-        const r0 = S * 0.20;
-        // culorile presetului: trei sinusoide lente, aproape de aceeași frecvență,
-        // deci nuanța alunecă încet prin turcoaz-albastru-verde
-        const ch = (base, f) => Math.round(255 * Math.max(0, Math.min(1, base + 0.5 * Math.sin(f * t))));
-        const col = a => `rgba(${ch(0.45, 1.13)},${ch(0.65, 1.23)},${ch(0.70, 1.33)},${a})`;
-        const N = 460;
-        CTX.beginPath();
-        for (let k = 0; k <= N; k++) {
-          const u = k / N, th = u * Math.PI * 2 + t * 0.075;
-          const seam = Math.max(0, (u - 0.9) / 0.1);
-          const amp = vs(u) * (1 - seam) + vs(0) * seam;
-          // wave_scale 1.29 în preset: unda e mare, de aia panglicile ies lungi
-          // lobii trebuie să RĂTĂCEASCĂ, nu doar să pulseze: altfel fiecare cadru
-          // redesenează același inel și nu se depune nicio panglică
-          const wav = 1 + 0.20 * Math.sin(2 * th + t * 0.47)
-                        + 0.12 * Math.sin(3 * th - t * 0.31 + Math.sin(t * 0.17) * 2)
-                        + 0.07 * Math.sin(7 * th + t * 0.23);
-          const rr = r0 * wav * (1 + 1.10 * amp);
-          const x = Math.cos(th) * rr, y = Math.sin(th) * rr;
-          k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
-        }
-        CTX.closePath();
-        CTX.lineJoin = CTX.lineCap = 'round';
-        CTX.lineWidth = 22; CTX.strokeStyle = col(0.030); CTX.stroke();
-        CTX.lineWidth = 7;  CTX.strokeStyle = col(0.075); CTX.stroke();
-        CTX.lineWidth = 1.8; CTX.strokeStyle = col(0.55); CTX.stroke();
-      });
-  }},
-  { name: 'mătase Flexi — filamente fine, iridescente', rest: 0.50, full: true, draw(t) {
-      // Inspirat din „Flexi - truly soft piece of software (Jelly)". Ăsta e singurul
-      // dintre cele alese care NU se poate porta mecanic: la el imaginea vine din
-      // shaderul de pixeli (wave_a=0.004, adică unda e practic invizibilă), nu din
-      // vreo undă desenată. Ce se poate reproduce e comportamentul: decay ≈ 1, deci
-      // filamentele rămân minute întregi și se depun în fire de mătase.
-      tunnelLayer({ DECAY: 0.975, ZOOM: 1.006, TWIST: 0.0042 }, () => {
-        const S = Math.min(innerWidth, innerHeight);
-        const r0 = S * 0.17;                       // pornesc din afara cursorului
-        const STRANDS = 5, SEG = 26;
-        for (let f = 0; f < STRANDS; f++) {
-          const ph = f * 2.39996 + Math.sin(t * 0.13 + f) * 1.4;
-          const a0 = t * 0.11 + ph;
-          // culoare iridescentă: verde → cyan → albastru → galben, plimbată lent
-          const hue = (128 + 110 * Math.sin(t * 0.21 + f * 1.7) + f * 24) % 360;
-          const en = 0.25 + 0.75 * eAt((f * 0.19 + 0.1) % 1);
-          CTX.beginPath();
-          for (let k = 0; k <= SEG; k++) {
-            const u = k / SEG;
-            // firul se desfășoară spre exterior, ondulat de voce și de un mers lent
-            const rr = r0 * (1 + 1.25 * u * (0.55 + 0.45 * en));
-            const th = a0 + u * (1.15 + 0.6 * Math.sin(t * 0.27 + f))
-                     + 0.30 * Math.sin(u * 7 + t * 0.9 + f) * (0.4 + 0.6 * en)
-                     + 0.45 * vs((u + f * 0.2) % 1);
-            const x = Math.cos(th) * rr, y = Math.sin(th) * rr;
-            k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
+        const q2 = t * 0.55;
+        const LAYERS = [
+          { n: 7, spin:  1.000, len: 0.30, wide: 0.055, a: 0.70, ph: [0.350, 0.578, 0.689] },
+          { n: 6, spin: -1.050, len: 0.44, wide: 0.045, a: 0.60, ph: [0.450, 0.678, 0.689] },
+          { n: 5, spin:  0.899, len: 0.60, wide: 0.036, a: 0.50, ph: [0.450, 0.578, 0.789] },
+        ];
+        const lit = 0.45 + 0.85 * levelNow;
+        for (const L of LAYERS) {
+          const col = Math.round(255 * (0.5 + 0.5 * Math.sin(L.ph[0] * q2))) + ',' +
+                      Math.round(255 * (0.5 + 0.5 * Math.sin(L.ph[1] * q2))) + ',' +
+                      Math.round(255 * (0.5 + 0.5 * Math.sin(L.ph[2] * q2)));
+          for (let k = 0; k < L.n; k++) {
+            const a = q2 * L.spin + (k / L.n) * Math.PI * 2;
+            const en = 0.35 + 0.65 * eAt((k / L.n + L.len) % 1);
+            const rOut = S * L.len * (0.75 + 0.45 * en);
+            const halfW = S * L.wide * (0.6 + 0.6 * en);
+            const ca = Math.cos(a), sa = Math.sin(a);
+            // petala: un fus de la centru spre exterior, lat la mijloc
+            const P = 22, pts = [];
+            for (let i = 0; i <= P; i++) {
+              const u = i / P, w = Math.sin(Math.PI * u) * halfW;
+              pts.push([ca * rOut * u - sa * w, sa * rOut * u + ca * w]);
+            }
+            for (let i = P; i >= 0; i--) {
+              const u = i / P, w = -Math.sin(Math.PI * u) * halfW;
+              pts.push([ca * rOut * u - sa * w, sa * rOut * u + ca * w]);
+            }
+            // gradient pe axă: stins în centru (fără miezul orbitor), plin la mijloc
+            const g = CTX.createLinearGradient(0, 0, ca * rOut, sa * rOut);
+            g.addColorStop(0.00, `rgba(${col},0)`);
+            g.addColorStop(0.22, `rgba(${col},${0.10 * L.a * lit})`);
+            g.addColorStop(0.55, `rgba(${col},${0.55 * L.a * lit})`);
+            g.addColorStop(1.00, `rgba(${col},0)`);
+            CTX.beginPath();
+            pts.forEach(([x, y], i) => i ? CTX.lineTo(x, y) : CTX.moveTo(x, y));
+            CTX.closePath();
+            CTX.fillStyle = g; CTX.fill();
           }
-          CTX.lineJoin = CTX.lineCap = 'round';
-          CTX.strokeStyle = `hsla(${hue}, 90%, 62%, ${0.05 + 0.10 * en})`;
-          CTX.lineWidth = 5; CTX.stroke();
-          CTX.strokeStyle = `hsla(${hue}, 95%, 72%, ${0.16 + 0.34 * en})`;
-          CTX.lineWidth = 1.1; CTX.stroke();
         }
       });
   }},
+  // ── presetele MilkDrop pe care le-ai ales, rulate CU MOTORUL LOR ──────────
+  // Nu sunt reimplementări: pagina încarcă butterchurn (același motor ca în modul
+  // MilkDrop) și îi fixează presetul, randat pe toată fereastra. Deci arată exact
+  // ca originalul, inclusiv ce trece peste centru.
+  { name: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)' },
+  { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)' },
+  { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast' },
+  { name: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
+  { name: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
+  { name: 'MilkDrop 85 — Zylot, Star Ornament', preset: 'Zylot - Star Ornament' },
+  { name: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
+  { name: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
+  { name: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
@@ -1022,7 +967,7 @@ function tunnelLayer({ DECAY, ZOOM, TWIST }, drawFn) {
 // pe date mobile. Se păstrează doar presetele cu undă CIRCULARĂ (wave_mode 0 sau 1)
 // și cele „numai linii" — restul umplu cadrul cu fundal colorat, adică exact ce nu
 // vrem peste o aplicație.
-let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0;
+let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0, pinned = null;
 const mdCanvas = document.getElementById('md');
 const mdBtn = document.getElementById('mdBtn');
 
@@ -1044,7 +989,38 @@ function cleanliness(p) {                    // cât de „numai linii" e preset
        - ((p.pixel_eqs_str || '').length > 40 ? 1 : 0);
 }
 
-async function mdEnable() {
+// încarcă motorul o singură dată; folosit și de modul MilkDrop, și de presetele fixate
+async function mdBoot() {
+  if (mdPresets) return true;
+  return await mdEnable(true);
+}
+
+async function pinPreset(name, scale) {
+  if (!(await mdBoot())) return false;
+  if (!mdPresets[name]) { label.textContent = 'presetul nu există: ' + name; return false; }
+  pinned = name;
+  // `scale` doar micșorează pânza pe ecran: compoziția presetului rămâne intactă,
+  // spre deosebire de a-i schimba dimensiunea de randare, care i-ar schimba forma
+  document.documentElement.style.setProperty('--mdScale', String(scale || 1));
+  mdCanvas.classList.add('bleed');
+  mdCanvas.classList.remove('hidden');
+  canvas.classList.add('hidden');
+  full.classList.add('hidden');
+  layout();
+  viz.loadPreset(mdPresets[name], 0.6);
+  return true;
+}
+
+function unpin() {
+  if (!pinned) return;
+  pinned = null;
+  mdCanvas.classList.remove('bleed');
+  if (!mdOn) mdCanvas.classList.add('hidden');
+  canvas.classList.remove('hidden');
+  layout();
+}
+
+async function mdEnable(bootOnly) {
   if (!mdPresets) {
     label.textContent = 'se încarcă presetele MilkDrop…';
     try {
@@ -1069,7 +1045,7 @@ async function mdEnable() {
     viz.setRendererSize(mdCanvas.width, mdCanvas.height);
     if (micSource) viz.connectAudio(micSource);
   }
-  mdLoad(mdIdx);
+  if (!bootOnly) mdLoad(mdIdx);
   return true;
 }
 
@@ -1173,7 +1149,16 @@ FORMULAS.forEach((f, i) => {
 });
 function pick(i) {
   fIdx = i;
-  canvas.classList.toggle('hidden', !!FORMULAS[i].full);
+  const F = FORMULAS[i];
+  if (F.preset) {
+    label.textContent = 'se încarcă ' + F.name + '…';
+    [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
+    pinPreset(F.preset, F.scale).then(ok => { if (ok) label.textContent = (i + 1) + ' — ' + F.name; });
+    poke();
+    return;
+  }
+  unpin();
+  canvas.classList.toggle('hidden', !!F.full);
   for (const f of fbuf) f.x.clearRect(0, 0, f.c.width, f.c.height);
   [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
   label.textContent = (i + 1) + ' — ' + FORMULAS[i].name;
@@ -1210,9 +1195,11 @@ const t0 = performance.now();
   updateShape(t);
   drawBars();
   const F = FORMULAS[fIdx];
-  full.classList.toggle('hidden', mdOn || !F.full);
-  if (mdOn && viz) {
+  full.classList.toggle('hidden', mdOn || pinned || !F.full);
+  if ((mdOn || pinned) && viz) {
     viz.render();
+  } else if (F.preset) {
+    // presetul încă se încarcă: nu are draw(), deci nu desenăm nimic în acest cadru
   } else if (F.full) {
     F.draw(t);
   } else {
