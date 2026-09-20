@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ro">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Voice Halo</title>
+<style>
+  :root {
+    --ink: #cfd6de; --dim: #7f8894; --line: #1d242d;
+    --pad-b: env(safe-area-inset-bottom, 0px);
+    --pad-t: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: #05070a; color: var(--dim);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  body::before {                       /* fundal, ca să se vadă cum compune halo-ul */
+    content: ""; position: fixed; inset: 0;
+    background: radial-gradient(120vmax 90vmax at 30% 15%, #101b26, #05070a 70%);
+  }
+  /* pânza: centrată pe ecran, mai lată decât ecranul — vârfurile tari pot ieși afară */
+  #wrap { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+          pointer-events: none; mix-blend-mode: screen }
+  #wrap canvas { display: block }
+
+  /* ── comenzi ─────────────────────────────────────────────────────────── */
+  #ui { position: fixed; inset: 0; display: flex; flex-direction: column;
+        justify-content: space-between; padding: calc(var(--pad-t) + 10px) 10px
+        calc(var(--pad-b) + 8px); transition: opacity .35s; z-index: 3 }
+  #ui.faded { opacity: 0 }
+  #chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center }
+  .chip { flex: 0 0 auto; min-width: 42px; padding: 9px 12px; border-radius: 999px;
+          border: 1px solid var(--line); background: rgba(10,14,19,.72); color: var(--dim);
+          font: 600 14px/1 ui-monospace, monospace; backdrop-filter: blur(8px) }
+  .chip.on { border-color: #3c7fa6; color: #bfe6ff; background: rgba(20,44,60,.8) }
+  /* favoritele lui Victor: 5 (spițe pe spectru) și 7 (MilkDrop autentic) */
+  .chip.fav::after { content: "★"; font-size: 9px; vertical-align: super; opacity: .75 }
+  #bottom { display: flex; flex-direction: column; gap: 8px; align-items: center }
+  #label { color: var(--ink); font-size: 12px; text-align: center; padding: 0 8px;
+           text-shadow: 0 1px 6px #000 }
+  #mic { padding: 13px 20px; border-radius: 999px; border: 1px solid #2f6b8c;
+         background: rgba(16,40,56,.85); color: #bfe6ff; font: 600 15px/1 inherit;
+         backdrop-filter: blur(8px) }
+  #mic.live { border-color: var(--line); background: rgba(10,14,19,.6); color: var(--dim);
+              font-weight: 400; font-size: 12px; padding: 7px 14px }
+  #mic.bad { border-color: #7a3a33; color: #ff9b8a }
+  /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
+  #bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 46px }
+  #bars div { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
+              background: linear-gradient(#7fe3ff, #23566f) }
+</style>
+
+<div id="wrap"><canvas id="c"></canvas></div>
+
+<div id="ui">
+  <div id="chips"></div>
+  <div id="bottom">
+    <div id="label">apasă pe buton ca să pornești microfonul</div>
+    <button id="mic">🎙 pornește microfonul</button>
+    <div id="bars"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────── audio ────────────────────────────────
+// Pe telefon getUserMedia cere DOUĂ lucruri: origine https (de aici GitHub Pages)
+// și un gest al utilizatorului. iOS mai cere și un actx.resume() în acel gest,
+// altfel contextul rămâne suspendat și forma de undă e numai zerouri.
+const actx = new (window.AudioContext || window.webkitAudioContext)();
+const analyser = actx.createAnalyser();
+analyser.fftSize = 2048;
+analyser.smoothingTimeConstant = 0.72;
+const wave = new Float32Array(analyser.fftSize);
+const spec = new Uint8Array(analyser.frequencyBinCount);
+let micOn = false;
+
+const micBtn = document.getElementById('mic');
+const label  = document.getElementById('label');
+
+async function startMic() {
+  if (micOn) return;
+  try {
+    if (!navigator.mediaDevices) throw new Error('fără mediaDevices (pagina nu e pe https?)');
+    await actx.resume();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
+    });
+    actx.createMediaStreamSource(stream).connect(analyser);
+    micOn = true;
+    micBtn.className = 'live';
+    micBtn.textContent = '🎙 microfon pornit';
+    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name;
+    keepAwake();
+  } catch (e) {
+    micBtn.className = 'bad';
+    micBtn.textContent = 'microfon refuzat: ' + (e.name || e.message);
+  }
+}
+micBtn.addEventListener('click', startMic);
+
+// ecranul să nu se stingă cât te uiți la el
+async function keepAwake() {
+  try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && micOn) keepAwake();
+});
+
+// ── vumetrul: se vede imediat când intră vocea ────────────────────────
+const BARS = 36, barEls = [];
+{
+  const box = document.getElementById('bars');
+  for (let i = 0; i < BARS; i++) { const d = document.createElement('div'); box.append(d); barEls.push(d); }
+}
+function drawBars() {
+  analyser.getByteFrequencyData(spec);
+  // vocea stă jos în spectru, deci benzile grave primesc mai multă lățime (scală pătratică)
+  for (let i = 0; i < BARS; i++) {
+    const lo = Math.floor(Math.pow(i / BARS, 2) * spec.length);
+    const hi = Math.max(lo + 1, Math.floor(Math.pow((i + 1) / BARS, 2) * spec.length));
+    let sum = 0; for (let j = lo; j < hi; j++) sum += spec[j];
+    barEls[i].style.height = (2 + (sum / (hi - lo) / 255) * 42) + 'px';
+  }
+}
+
+// ──────────────────────── geometrie / layout ──────────────────────────
+// Cerința: cercul de repaus să aibă diametrul = 80% din LĂȚIMEA ecranului.
+// Fiecare formulă își desenează inelul la o fracțiune proprie din R (0.42…0.58),
+// așa că R nu e „jumătate de ecran": îl calculăm din fracțiunea formulei curente,
+// ca toate cele șapte să iasă la același diametru vizibil.
+const RING_OF_WIDTH = 0.80;
+const canvas = document.getElementById('c');
+const lctx = canvas.getContext('2d');
+const wrap = document.getElementById('wrap');
+const dpr = Math.min(2, window.devicePixelRatio || 1);   // 2 e destul; 3 doar încinge telefonul
+let R = 150;
+
+const fb = [0, 1].map(() => { const c = document.createElement('canvas'); return { c, x: c.getContext('2d') }; });
+let fbCur = 0;
+
+function layout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const wanted = RING_OF_WIDTH * Math.min(vw, vh * 0.92) / 2;   // raza cerută, în px
+  R = wanted / FORMULAS[fIdx].rest;                             // deci jumătatea pânzei
+  const side = Math.round(R * 2), px = Math.round(side * dpr);
+  canvas.style.width = canvas.style.height = side + 'px';
+  canvas.width = canvas.height = px;
+  lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  wrap.style.width = wrap.style.height = side + 'px';
+  for (const f of fb) { f.c.width = f.c.height = px; }
+}
+addEventListener('resize', layout);
+addEventListener('orientationchange', () => setTimeout(layout, 250));
+
+// ─────────────── formulele: desenate în coordonate centrate ───────────
+// v(i) = eșantionul de undă în [-1,1]; s(i) = spectrul în [0,1].
+const v = i => wave[(i * (wave.length - 1)) | 0] || 0;
+const s = i => (spec[(i * (spec.length * 0.55)) | 0] || 0) / 255;
+
+function strokePath(pts, close, hue, width, alpha) {
+  lctx.beginPath();
+  pts.forEach(([x, y], k) => k ? lctx.lineTo(x, y) : lctx.moveTo(x, y));
+  if (close) lctx.closePath();
+  lctx.lineWidth = width; lctx.lineJoin = 'round'; lctx.lineCap = 'round';
+  lctx.strokeStyle = `hsla(${hue % 360}, 85%, 62%, ${alpha})`;
+  lctx.shadowColor = `hsla(${hue % 360}, 95%, 60%, .9)`;
+  lctx.shadowBlur = width * 5;
+  lctx.stroke();
+}
+
+// `rest` = unde stă marginea VIZIBILĂ a efectului, ca fracțiune din R — nu linia
+// nominală. Urmele feedback-ului se împrăștie spre exterior până se sting, spițele
+// ies din inelul de bază; dacă am scala după linia nominală, efectul ar depăși
+// ecranul. Așa, toate ies la același diametru.
+//
+// ORDINEA e criteriul lui Victor, nu cronologia: primele lasă centrul complet
+// liber și țin toată mișcarea într-o bandă îngustă, ca să poți suprapune ceva
+// discret în mijloc. Ultimele două traversează sau umplu centrul — sunt la coadă
+// tocmai fiindcă îl încalcă.
+
+// Inelul MilkDrop, ca funcție: aceeași formulă, doi parametri diferiți (bandă
+// strânsă vs. mănunchi lat). Raza în punctul i = raza de repaus + eșantionul PCM;
+// mănunchiul de fire e cadrul precedent redesenat mărit, rotit și stins.
+function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W }) {
+  const px = fb[0].c.width, half = px / 2;
+  const src = fb[fbCur], dst = fb[1 - fbCur];
+
+  dst.x.setTransform(1, 0, 0, 1, 0, 0);
+  dst.x.globalCompositeOperation = 'source-over';
+  dst.x.clearRect(0, 0, px, px);
+  dst.x.save();
+  dst.x.globalAlpha = DECAY;
+  dst.x.translate(half, half); dst.x.rotate(TWIST); dst.x.scale(ZOOM, ZOOM);
+  dst.x.drawImage(src.c, -half, -half, px, px);
+  dst.x.restore();
+
+  const N = 512;
+  dst.x.globalCompositeOperation = 'lighter';
+  dst.x.strokeStyle = '#fff';
+  dst.x.lineJoin = dst.x.lineCap = 'round';
+  dst.x.beginPath();
+  for (let k = 0; k <= N; k++) {
+    const i = k / N, th = i * Math.PI * 2 + t * 0.12;
+    const seam = Math.max(0, (i - 0.92) / 0.08);        // ultimele 8% din buclă
+    const sample = v(i) * (1 - seam) + v(0) * seam;     // → se întorc la primul,
+    const r = half * (R0 + AMP * sample);               //   altfel rămâne o coardă
+    const x = half + Math.cos(th) * r, y = half + Math.sin(th) * r;
+    k ? dst.x.lineTo(x, y) : dst.x.moveTo(x, y);
+  }
+  dst.x.closePath();
+  dst.x.lineWidth = W * 2.6 * dpr; dst.x.globalAlpha = 0.10; dst.x.stroke();   // halo
+  dst.x.lineWidth = W * dpr;       dst.x.globalAlpha = 0.85; dst.x.stroke();   // firul
+  dst.x.globalAlpha = 1;
+  fbCur = 1 - fbCur;
+  lctx.drawImage(fb[fbCur].c, -R, -R, R * 2, R * 2);
+}
+
+const FORMULAS = [
+  { name: 'MilkDrop strâns — bandă îngustă, centru curat', rest: 0.62, draw(t) {
+      // aceeași formulă ca mai jos, dar urmele abia se împrăștie (ZOOM mic) și se
+      // sting repede (DECAY mic): rămâne un fir gros de câteva cadre, nu un nor
+      milkdropRing(t, { ZOOM: 1.005, TWIST: 0.003, DECAY: 0.84, R0: 0.56, AMP: 0.16, W: 1.1 });
+  }},
+  { name: 'MilkDrop autentic — undă PCM pe cerc + feedback', rest: 0.76, draw(t) {
+      milkdropRing(t, { ZOOM: 1.013, TWIST: 0.004, DECAY: 0.93, R0: 0.50, AMP: 0.34, W: 1.2 });
+  }},
+  { name: 'lanț de fulgere — arce zimțate pe inel', rest: 0.66, draw(t) {
+      // ca inelul din Walkie Talkie: arce scurte cu pauze între ele, fiecare vârf
+      // împins în afară de propriul eșantion audio. Nimic nu intră spre centru.
+      const M = 14, SEG = 9, r0 = R * 0.56;
+      for (let m = 0; m < M; m++) {
+        const a0 = (m / M) * Math.PI * 2 + t * 0.22;
+        const span = (Math.PI * 2 / M) * 0.70;           // 30% pauză între arce
+        const pts = [];
+        for (let k = 0; k <= SEG; k++) {
+          const u = k / SEG, th = a0 + span * u;
+          const j = v((m * SEG + k) / (M * SEG));
+          const r = r0 * (1 + 0.17 * j + 0.03 * Math.sin(t * 3.1 + m * 1.7));
+          pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+        }
+        strokePath(pts, false, 195 + m * 3 + t * 12, 1.7, .92);
+      }
+  }},
+  { name: 'spițe radiale pe spectru', rest: 0.72, draw(t) {
+      // inelul de bază împins în afară (0.30 → 0.46) ca gaura din mijloc să fie
+      // destul de mare cât să suprapui ceva: spițele cresc doar spre exterior
+      const N = 96, r0 = R * 0.46;
+      for (let k = 0; k < N; k++) {
+        const i = k / N, th = i * Math.PI * 2 + t * .1;
+        const len = R * (0.04 + 0.30 * Math.pow(s(i), 1.4));
+        strokePath([[Math.cos(th) * r0, Math.sin(th) * r0],
+                    [Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len)]],
+                   false, t * 22 + i * 180, 2.2, .9);
+      }
+      const ring = [];
+      for (let k = 0; k <= 180; k++) { const th = k / 180 * Math.PI * 2;
+        ring.push([Math.cos(th) * r0, Math.sin(th) * r0]); }
+      strokePath(ring, true, t * 22 + 200, 1, .45);
+  }},
+  { name: 'mărgele pe orbită — un punct per bandă de frecvență', rest: 0.60, draw(t) {
+      // cel mai discret din tot grupul: doar puncte pe un cerc, restul ecranului liber
+      const N = 64, r0 = R * 0.54;
+      for (let k = 0; k < N; k++) {
+        const i = k / N, th = i * Math.PI * 2 + t * 0.18;
+        const e = Math.pow(s(i), 1.3);
+        const r = r0 * (1 + 0.10 * e);
+        const size = 0.9 + 3.4 * e;
+        lctx.beginPath();
+        lctx.arc(Math.cos(th) * r, Math.sin(th) * r, size, 0, Math.PI * 2);
+        lctx.fillStyle = `hsla(${(t * 20 + i * 200) % 360}, 85%, ${55 + 25 * e}%, ${.45 + .5 * e})`;
+        lctx.shadowColor = lctx.fillStyle; lctx.shadowBlur = size * 4;
+        lctx.fill();
+      }
+      lctx.shadowBlur = 0;
+  }},
+  { name: 'cerc de undă (AVS superscope clasic)', rest: 0.56, draw(t) {
+      const N = 512, pts = [];
+      for (let k = 0; k <= N; k++) {
+        const i = k / N, th = i * Math.PI * 2 + t * 0.15;
+        const r = R * (0.52 + 0.30 * v(i));
+        pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+      }
+      strokePath(pts, true, t * 20, 1.8, .95);
+  }},
+  { name: 'cerc dublu, oglindit (stânga/dreapta)', rest: 0.55, draw(t) {
+      for (const sgn of [1, -1]) {
+        const N = 384, pts = [];
+        for (let k = 0; k <= N; k++) {
+          const i = k / N, th = i * Math.PI * 2 + sgn * t * 0.25;
+          const r = R * (0.48 + sgn * 0.26 * v(i) + 0.05 * sgn);
+          pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+        }
+        strokePath(pts, true, t * 25 + (sgn > 0 ? 0 : 140), 1.5, .85);
+      }
+  }},
+  { name: 'roză / floare (r = 1 + sin kθ, modulată de voce)', rest: 0.50, draw(t) {
+      const N = 720, K = 5, pts = [];
+      for (let k = 0; k <= N; k++) {
+        const i = k / N, th = i * Math.PI * 2;
+        const r = R * (0.34 + 0.16 * Math.sin(K * th + t * .6) + 0.22 * v(i));
+        pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+      }
+      strokePath(pts, true, t * 30, 1.6, .9);
+  }},
+  { name: 'spiro cu coarde — TRECE prin centru', rest: 0.50, draw(t) {
+      const N = 220, a = [], b = [];
+      for (let k = 0; k <= N; k++) {
+        const i = k / N, th = i * Math.PI * 2;
+        const r1 = R * (0.50 + 0.22 * v(i)), r2 = R * (0.34 + 0.22 * v((i + .5) % 1));
+        a.push([Math.cos(th + t * .2) * r1, Math.sin(th + t * .2) * r1]);
+        b.push([Math.cos(-th * 1.0 + t * .35) * r2, Math.sin(-th + t * .35) * r2]);
+      }
+      strokePath(a, true, t * 18, 1.4, .8);
+      strokePath(b, true, t * 18 + 180, 1.4, .8);
+      for (let k = 0; k < N; k += 11) strokePath([a[k], b[k]], false, t * 18 + 90, .8, .35);
+  }},
+  { name: 'vortex — UMPLE centrul', rest: 0.58, draw(t) {
+      const N = 900, TURNS = 3, pts = [];
+      for (let k = 0; k <= N; k++) {
+        const i = k / N, th = i * Math.PI * 2 * TURNS - t * .5;
+        const r = R * (0.14 + 0.44 * i + 0.16 * v(i));
+        pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+      }
+      strokePath(pts, false, t * 26, 1.5, .9);
+  }},
+];
+
+// ─────────────────────────── comenzi pe ecran ─────────────────────────
+let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
+const FAVS = new Set([1, 3]);       // cele două alese de Victor, marcate cu ★
+const chips = document.getElementById('chips');
+FORMULAS.forEach((f, i) => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (i === fIdx ? ' on' : '') + (FAVS.has(i) ? ' fav' : '');
+  b.textContent = i + 1;
+  b.addEventListener('click', () => pick(i));
+  chips.append(b);
+});
+function pick(i) {
+  fIdx = i;
+  [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
+  label.textContent = (i + 1) + ' — ' + FORMULAS[i].name;
+  for (const f of fb) f.x.clearRect(0, 0, f.c.width, f.c.height);   // fără urme de la formula veche
+  layout();                                                         // fiecare formulă, același diametru
+  poke();
+}
+
+// comenzile se estompează singure ca să rămână doar halo-ul; o atingere le readuce
+let fadeTimer = null;
+const ui = document.getElementById('ui');
+function poke() {
+  ui.classList.remove('faded');
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => ui.classList.add('faded'), 4500);
+}
+addEventListener('pointerdown', poke);
+poke();
+
+// ─────────────────────────────── bucla ────────────────────────────────
+layout();
+const t0 = performance.now();
+(function frame(now) {
+  const t = (now - t0) / 1000;
+  analyser.getFloatTimeDomainData(wave);
+  drawBars();
+  lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  lctx.clearRect(0, 0, R * 2, R * 2);
+  lctx.translate(R, R);
+  lctx.globalCompositeOperation = 'lighter';
+  FORMULAS[fIdx].draw(t);
+  requestAnimationFrame(frame);
+})(performance.now());
+</script>
+</html>
