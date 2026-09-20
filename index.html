@@ -64,9 +64,24 @@
   #ide .code { padding: 6px 10px; color: #bcbec4; white-space: pre; flex: 1 1 auto }
   #ide .k { color: #cf8e6d } #ide .s { color: #6aab73 } #ide .c { color: #7a7e85 }
   #ide .t { color: #bcbec4 } #ide .n { color: #2aacb8 } #ide .f { color: #56a8f5 }
-  #bg { position: fixed; right: 12px; top: calc(var(--pad-t) + 10px); z-index: 6;
-        padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+  /* stă jos: sus acoperea cifrele și nu se mai putea alege efectul */
+  #bg { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
         background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
+  #row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
+  #mdBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+           background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
+  #mdBtn.on, #walkBtn.on, #hudBtn.on { border-color: #3c7fa6; color: #bfe6ff;
+                                        background: rgba(20,44,60,.8) }
+  #walkBtn, #hudBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+                      background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
+  /* „ascunde barele": rămân doar butoanele, ca animația să aibă tot ecranul */
+  body.bare #bars, body.bare #label, body.bare #chips { display: none }
+  #wrap canvas { position: absolute; left: 0; top: 0 }
+  .hidden { display: none !important }
+  /* presetul umple pătratul cu negru; masca îi ascunde colțurile, iar `screen`
+     de pe #wrap face negrul să dispară peste fundal */
+  #md { -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
+        mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%) }
   /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
   #bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 46px }
   #bars div { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
@@ -105,15 +120,19 @@
 </div>
   </div>
 </div>
-<button id="bg">fundal: IDE</button>
-
-<div id="wrap"><canvas id="c"></canvas></div>
+<div id="wrap"><canvas id="c"></canvas><canvas id="md" class="hidden"></canvas></div>
 
 <div id="ui">
   <div id="chips"></div>
   <div id="bottom">
     <div id="label">apasă pe buton ca să pornești microfonul</div>
-    <button id="mic">🎙 pornește microfonul</button>
+    <div id="row">
+      <button id="mic">🎙 pornește microfonul</button>
+      <button id="bg">fundal: IDE</button>
+      <button id="mdBtn">MilkDrop</button>
+      <button id="walkBtn">plimbare</button>
+      <button id="hudBtn">ascunde barele</button>
+    </div>
     <div id="bars"></div>
   </div>
 </div>
@@ -129,7 +148,7 @@ analyser.fftSize = 2048;
 analyser.smoothingTimeConstant = 0.72;
 const wave = new Float32Array(analyser.fftSize);
 const spec = new Uint8Array(analyser.frequencyBinCount);
-let micOn = false;
+let micOn = false, micSource = null;
 
 const micBtn = document.getElementById('mic');
 const label  = document.getElementById('label');
@@ -142,7 +161,9 @@ async function startMic() {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
     });
-    actx.createMediaStreamSource(stream).connect(analyser);
+    micSource = actx.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    if (viz) viz.connectAudio(micSource);
     micOn = true;
     micBtn.className = 'live';
     micBtn.textContent = '🎙 microfon pornit';
@@ -194,15 +215,25 @@ let R = 150;
 const fb = [0, 1].map(() => { const c = document.createElement('canvas'); return { c, x: c.getContext('2d') }; });
 let fbCur = 0;
 
+const P = { side_px: 300 };
 function layout() {
   const vw = window.innerWidth, vh = window.innerHeight;
   const wanted = RING_OF_WIDTH * Math.min(vw, vh * 0.92) / 2;   // raza cerută, în px
-  R = wanted / FORMULAS[fIdx].rest;                             // deci jumătatea pânzei
+  // în modul MilkDrop pătratul e cât cercul cerut, nu cât are nevoie formula
+  // MilkDrop desenează pe tot pătratul, deci pătratul trebuie să încapă pe ecran;
+  // formulele proprii își cer singure marginea prin `rest`
+  R = mdOn ? Math.min(vw, vh * 0.92) / 2 : wanted / FORMULAS[fIdx].rest;
   const side = Math.round(R * 2), px = Math.round(side * dpr);
+  P.side_px = side;
   canvas.style.width = canvas.style.height = side + 'px';
   canvas.width = canvas.height = px;
   lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   wrap.style.width = wrap.style.height = side + 'px';
+  // butterchurn nu scrie singur atributele canvasului (rămân 300×150, adică imagine
+  // decentrată și la altă scară); le punem noi înainte de setRendererSize
+  mdCanvas.style.width = mdCanvas.style.height = side + 'px';
+  mdCanvas.width = mdCanvas.height = px;
+  if (viz) viz.setRendererSize(px, px);
   for (const f of fb) { f.c.width = f.c.height = px; }
 }
 addEventListener('resize', layout);
@@ -636,7 +667,7 @@ const FORMULAS = [
             const th = u * Math.PI * 2 + t * (kind ? -0.06 : 0.06);
             const live = Math.min(1, Math.abs(src[i % N]) * gain);
             const amp = live * (1 - idleMix) + vs(u) * 1.5 * idleMix;
-            const r = R * (0.52 + 0.15 * amp);
+            const r = R * (0.52 + 0.225 * amp);   // +50% amplitudine
             pts.push([Math.cos(th) * r, Math.sin(th) * r]);
           }
           fogPath(pts, true, hue, 22, .030, 0.02);      // intensitate redusă
@@ -687,7 +718,7 @@ const FORMULAS = [
           for (let k = 0; k <= SEG; k++) {
             const u = k / SEG, th = a0 + span * u;
             const j = vs((m * SEG + k) / (M * SEG));
-            const r = r0 * (1 + 0.17 * j + 0.02 * Math.sin(t * 3.1 + m * 1.7));
+            const r = r0 * (1 + 0.51 * j + 0.02 * Math.sin(t * 3.1 + m * 1.7));  // vibrație ×3
             pts.push([Math.cos(th) * r, Math.sin(th) * r]);
           }
           strokePath(pts, false, hue, 3.4, .92);
@@ -711,18 +742,22 @@ const FORMULAS = [
       // raportul dintre TWIST și ZOOM decide dacă ceața iese drept sau se
       // răsucește: rotație mare + împingere mică = spirala din film
       trailLayer({ DECAY: 0.935, ZOOM: 1.010, TWIST: 0.030 }, () => {
-        const orbit = R * 0.40, rb = R * 0.105;
+        const orbit = R * 0.68, rb = R * 0.105;   // rază +70%
         const spin = t * 0.45;
         for (const side of [0, 1]) {
           const a = spin + side * Math.PI;
           const cx = Math.cos(a) * orbit, cy = Math.sin(a) * orbit;
-          const hue = side ? 196 : 86;                  // albastru / verde-gălbui
+          const hue = side ? 210 : 2;                   // albastru / roșu
 
           // ceața care se ridică de pe contur: un nor moale, chiar pe bilă, pe care
           // stratul de urmă îl va împinge în afară cadru după cadru
+          // ceața nu se eliberează uniform, ci în VALURI: un puf scurt la fiecare
+          // ~1.4 s, defazat între bile, altfel dâra iese o panglică monotonă
+          const puff = 0.30 + 0.70 * Math.pow(Math.max(0,
+                        Math.sin(t * 1.45 + side * Math.PI * 0.7)), 4);
           const g = CTX.createRadialGradient(cx, cy, rb * 0.2, cx, cy, rb * 2.1);
-          g.addColorStop(0.00, `hsla(${hue}, 85%, 62%, ${0.038 + 0.060 * levelNow})`);
-          g.addColorStop(0.45, `hsla(${hue}, 85%, 60%, ${0.014 + 0.030 * levelNow})`);
+          g.addColorStop(0.00, `hsla(${hue}, 88%, 60%, ${(0.040 + 0.075 * levelNow) * puff})`);
+          g.addColorStop(0.45, `hsla(${hue}, 88%, 58%, ${(0.016 + 0.035 * levelNow) * puff})`);
           g.addColorStop(1.00, `hsla(${hue}, 85%, 60%, 0)`);
           CTX.beginPath(); CTX.arc(cx, cy, rb * 2.1, 0, Math.PI * 2);
           CTX.fillStyle = g; CTX.fill();
@@ -731,7 +766,7 @@ const FORMULAS = [
           const pts = [], N = 96;
           for (let k = 0; k <= N; k++) {
             const u = k / N, th = u * Math.PI * 2;
-            const r = rb * (1 + 0.26 * vs((u + side * 0.5) % 1));
+            const r = rb * (1 + 0.85 * vl((u + side * 0.5) % 1) + 0.05 * Math.sin(t * 2.3 + side));
             pts.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]);
           }
           strokePath(pts, true, hue + 10, 2.0, .55);
@@ -769,6 +804,141 @@ const FORMULAS = [
       orbBloom(0.95, 0.40);
   }},
 ];
+
+
+// ── modul MilkDrop: presetele reale, încărcate la cerere ─────────────────────
+// Scripturile (≈1 MB) se aduc abia când apeși butonul, ca pagina să rămână ușoară
+// pe date mobile. Se păstrează doar presetele cu undă CIRCULARĂ (wave_mode 0 sau 1)
+// și cele „numai linii" — restul umplu cadrul cu fundal colorat, adică exact ce nu
+// vrem peste o aplicație.
+let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0;
+const mdCanvas = document.getElementById('md');
+const mdBtn = document.getElementById('mdBtn');
+
+function loadScript(src) {
+  return new Promise((ok, no) => {
+    const el = document.createElement('script');
+    el.src = src; el.onload = ok; el.onerror = () => no(new Error(src));
+    document.head.append(el);
+  });
+}
+
+function cleanliness(p) {                    // cât de „numai linii" e presetul
+  const b = p.baseVals;
+  const on = l => (l || []).filter(x => x.baseVals && x.baseVals.enabled).length;
+  return Math.min(b.wave_a || 0, 1) * 2 + (b.wave_thick ? 1 : 0)
+       - Math.abs((b.zoom ?? 1) - 1) * 4 - Math.abs(b.warp || 0) * 1.5
+       - (b.echo_alpha || 0) * 2 - (1 - (b.decay ?? 1)) * 6
+       - on(p.shapes) * 0.7 + on(p.waves) * 0.4
+       - ((p.pixel_eqs_str || '').length > 40 ? 1 : 0);
+}
+
+async function mdEnable() {
+  if (!mdPresets) {
+    label.textContent = 'se încarcă presetele MilkDrop…';
+    try {
+      await loadScript('https://unpkg.com/butterchurn@2.6.7/lib/butterchurn.min.js');
+      await loadScript('https://unpkg.com/butterchurn-presets@2.4.7/lib/butterchurnPresets.min.js');
+      await loadScript('https://unpkg.com/butterchurn-presets@2.4.7/lib/butterchurnPresetsExtra.min.js');
+    } catch (e) {
+      label.textContent = 'nu am putut încărca MilkDrop (fără net?)';
+      return false;
+    }
+    mdPresets = Object.assign({}, butterchurnPresets.getPresets(),
+      (window.butterchurnPresetsExtra || { getPresets: () => ({}) }).getPresets());
+    mdNames = Object.keys(mdPresets)
+      .filter(n => (mdPresets[n].baseVals.wave_mode | 0) <= 1)
+      .sort((a, b) => cleanliness(mdPresets[b]) - cleanliness(mdPresets[a]));
+    // vizualizatorul trebuie creat DUPĂ ce pânza și-a luat dimensiunea finală:
+    // altfel rămâne cu viewport-ul vechi și presetul se desenează la altă scară,
+    // înghesuit într-un colț. De aceea layout() rulează înainte, cu mdOn deja pus.
+    layout();
+    viz = (butterchurn.default || butterchurn).createVisualizer(actx, mdCanvas,
+            { width: mdCanvas.width, height: mdCanvas.height, pixelRatio: 1 });
+    viz.setRendererSize(mdCanvas.width, mdCanvas.height);
+    if (micSource) viz.connectAudio(micSource);
+  }
+  mdLoad(mdIdx);
+  return true;
+}
+
+function mdLoad(i) {
+  if (!mdNames.length) return;
+  mdIdx = (i + mdNames.length) % mdNames.length;
+  viz.loadPreset(mdPresets[mdNames[mdIdx]], 1.2);
+  label.textContent = `MilkDrop ${mdIdx + 1}/${mdNames.length} — ${mdNames[mdIdx]}`;
+  poke();
+}
+
+mdBtn.addEventListener('click', async ev => {
+  ev.stopPropagation();
+  if (!mdOn) {
+    mdOn = true;                       // întâi starea, ca layout() să dea pătratul corect
+    mdBtn.classList.add('on');
+    mdCanvas.classList.remove('hidden');
+    canvas.classList.add('hidden');
+    if (!(await mdEnable())) {         // fără net: ne întoarcem curat
+      mdOn = false;
+      mdBtn.classList.remove('on');
+      mdCanvas.classList.add('hidden');
+      canvas.classList.remove('hidden');
+      layout();
+      return;
+    }
+  } else {
+    mdOn = false;
+    label.textContent = (fIdx + 1) + ' — ' + FORMULAS[fIdx].name;
+  }
+  mdBtn.classList.toggle('on', mdOn);
+  mdCanvas.classList.toggle('hidden', !mdOn);
+  canvas.classList.toggle('hidden', mdOn);
+  layout();
+});
+
+// swipe stânga/dreapta ca să tai prin presete
+let swipeX = null, swipeY = null;
+addEventListener('touchstart', e => {
+  swipeX = e.touches[0].clientX; swipeY = e.touches[0].clientY;
+}, { passive: true });
+addEventListener('touchend', e => {
+  if (swipeX === null || !mdOn) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  const dy = e.changedTouches[0].clientY - swipeY;
+  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) mdLoad(mdIdx + (dx < 0 ? 1 : -1));
+  swipeX = null;
+}, { passive: true });
+// pe desktop, aceleași săgeți
+addEventListener('keydown', e => {
+  if (!mdOn) return;
+  if (e.key === 'ArrowRight') mdLoad(mdIdx + 1);
+  else if (e.key === 'ArrowLeft') mdLoad(mdIdx - 1);
+});
+
+
+// ── plimbarea: halo-ul rătăcește lent pe ecran, ca să se vadă urma din spate ──
+// Traseu Lissajous cu perioade incomensurabile, deci nu se repetă vizibil.
+let walk = false;
+const walkBtn = document.getElementById('walkBtn');
+walkBtn.addEventListener('click', ev => {
+  ev.stopPropagation();
+  walk = !walk;
+  walkBtn.classList.toggle('on', walk);
+  if (!walk) wrap.style.transform = 'translate(-50%, -50%)';
+});
+function walkOffset(t) {
+  if (!walk) return '';
+  const ax = innerWidth * 0.20, ay = innerHeight * 0.16;
+  return ` translate(${(ax * Math.sin(t * 0.21)).toFixed(1)}px,` +
+         `${(ay * Math.sin(t * 0.29 + 1.1)).toFixed(1)}px)`;
+}
+
+const hudBtn = document.getElementById('hudBtn');
+hudBtn.addEventListener('click', ev => {
+  ev.stopPropagation();
+  document.body.classList.toggle('bare');
+  hudBtn.classList.toggle('on', document.body.classList.contains('bare'));
+  hudBtn.textContent = document.body.classList.contains('bare') ? 'arată barele' : 'ascunde barele';
+});
 
 // ─────────────────────────── comenzi pe ecran ─────────────────────────
 let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
@@ -811,17 +981,22 @@ layout();
 const t0 = performance.now();
 (function frame(now) {
   const t = (now - t0) / 1000;
+  if (walk) wrap.style.transform = 'translate(-50%, -50%)' + walkOffset(t);
   analyser.getFloatTimeDomainData(wave);
   analyser.getByteFrequencyData(spec);
   updateBands();
   updateShape(t);
   drawBars();
-  lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  lctx.clearRect(0, 0, R * 2, R * 2);
-  lctx.translate(R, R);
-  lctx.globalCompositeOperation = 'lighter';
-  CTX = lctx;
-  FORMULAS[fIdx].draw(t);
+  if (mdOn && viz) {
+    viz.render();
+  } else {
+    lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    lctx.clearRect(0, 0, R * 2, R * 2);
+    lctx.translate(R, R);
+    lctx.globalCompositeOperation = 'lighter';
+    CTX = lctx;
+    FORMULAS[fIdx].draw(t);
+  }
   requestAnimationFrame(frame);
 })(performance.now());
 </script>
