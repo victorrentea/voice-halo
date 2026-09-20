@@ -87,10 +87,15 @@
   .hidden { display: none !important }
   /* presetul umple pătratul cu negru; masca îi ascunde colțurile, iar `screen`
      de pe #wrap face negrul să dispară peste fundal */
-  #md { -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
+  /* stă în afara lui #wrap: un strămoș cu `transform` ancorează `position: fixed`
+     la el, nu la ecran — de aici presetul ieșea decalat și decupat */
+  #md { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        z-index: 1; pointer-events: none; mix-blend-mode: screen;
+        -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
         mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%) }
   /* preset fixat: pe toată fereastra, fără mască — ca să arate exact ca originalul */
-  #md.bleed { position: fixed; inset: 0; -webkit-mask-image: none; mask-image: none;
+  /* preset fixat: exact cât fereastra, centrat, fără mască */
+  #md.bleed { left: 0; top: 0; -webkit-mask-image: none; mask-image: none;
               transform: scale(var(--mdScale, 1)); transform-origin: center center }
   /* Cursorul macOS, fix în centrul ECRANULUI (nu al pânzei): când halo-ul se
      plimbă, el rămâne pe loc, ca să se vadă unde va fi mouse-ul în realitate.
@@ -142,7 +147,8 @@
         fill="#a06bff" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>
 </svg>
 <canvas id="full" class="hidden"></canvas>
-<div id="wrap"><canvas id="c"></canvas><canvas id="md" class="hidden"></canvas></div>
+<canvas id="md" class="hidden"></canvas>
+<div id="wrap"><canvas id="c"></canvas></div>
 
 <div id="ui">
   <div id="chips"></div>
@@ -885,7 +891,7 @@ const FORMULAS = [
   { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast' },
   { name: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
   { name: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa' },
-  { name: 'MilkDrop 85 — Zylot, Star Ornament', preset: 'Zylot - Star Ornament' },
+  { name: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.33 },
   { name: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
   { name: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
   { name: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
@@ -1150,7 +1156,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:42:45 78aba26';
+const BUILD = '16:45:27 afade8c';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
