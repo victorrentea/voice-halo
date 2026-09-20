@@ -36,6 +36,16 @@ Livrat în `b7eeef4` + `6b0edec`: meniu unic `Halo fx`, ⚡ pe presete, ordinea 
 bară, panou cât ecranul, plasă de siguranță (dacă pagina pică → film), pagina
 vendorizată la un commit fixat.
 
+## Unde s-a oprit (20 sep, 23:00)
+
+Aplicația instalată: build 22:57, cu pagina vendorizată la `22cd62c`. Ambele
+repo-uri curate și împinse. Deciziile lui Victor din ultima rundă:
+
+- **Comets și Water Dream ies din listă**; codul rămâne comis, nu șters.
+- **Cele 115 ms** de reconstrucție a paginii la schimbarea efectului **rămân** —
+  nu se simt. E decizie, nu scăpare: nu o „repara" într-o sesiune viitoare.
+- **Atom**: punctele scalează acum cu efectul în ambele sensuri.
+
 ## Deschise
 
 - [ ] **Tunnel: 0.42 sau 0.33?** Aplicația îl randa la scara 1, nu 0.5, deci „3×
