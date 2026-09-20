@@ -23,10 +23,10 @@
     content: ""; position: fixed; inset: 0;
     background: radial-gradient(120vmax 90vmax at 30% 15%, #101b26, #05070a 70%);
   }
-  /* pânza: centrată pe ecran, mai lată decât ecranul — vârfurile tari pot ieși afară */
-  #wrap { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-          pointer-events: none; mix-blend-mode: screen }
-  #wrap canvas { display: block }
+  /* Pânza pătrată (#wrap + #c) a fost ELIMINATĂ. Orice efect scris de mână
+     desenează acum direct pe #full, cât fereastra: un efect care ajunge la
+     marginea ecranului se oprește acolo fiindcă acolo se termină ecranul, nu
+     fiindcă l-a tăiat un dreptunghi (sau, la fel de rău, un cerc). */
 
   /* ── comenzi ─────────────────────────────────────────────────────────── */
   #ui { position: fixed; inset: 0; display: flex; flex-direction: column;
@@ -79,29 +79,49 @@
                       background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
   /* „ascunde barele": rămân doar butoanele, ca animația să aibă tot ecranul */
   body.bare #bars, body.bare #label, body.bare #chips { display: none }
-  #wrap canvas { position: absolute; left: 0; top: 0 }
   /* efectele „de tunel" nu se lasă ținute în pătratul halo-ului: urmele lor se
      împrăștie pe tot ecranul, deci au pânza lor, cât fereastra */
   #full { position: fixed; inset: 0; z-index: 1; pointer-events: none;
           mix-blend-mode: screen }
   .hidden { display: none !important }
-  /* presetul umple pătratul cu negru; masca îi ascunde colțurile, iar `screen`
-     de pe #wrap face negrul să dispară peste fundal */
-  /* stă în afara lui #wrap: un strămoș cu `transform` ancorează `position: fixed`
-     la el, nu la ecran — de aici presetul ieșea decalat și decupat */
-  #md { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
-        z-index: 1; pointer-events: none; mix-blend-mode: screen;
-        -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
-        mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%) }
-  /* preset fixat: pe toată fereastra, fără mască — ca să arate exact ca originalul */
-  /* preset fixat: exact cât fereastra, centrat, fără mască */
-  #md.bleed { left: 0; top: 0; -webkit-mask-image: none; mask-image: none;
-              transform: scale(var(--mdScale, 1)); transform-origin: center center }
+  /* MilkDrop: și la răsfoire, și la presetul fixat — o pânză PĂTRATĂ cu latura
+     max(lățime, înălțime), centrată. E „cover", nu „fit": acoperă ecranul în
+     ambele direcții, deci nu se vede unde se termină, dar păstrează raportul
+     presetului. Întinsă pe 390×844 (1:2.16), fiecare cerc al lui ORB - Waaa
+     devenea o elipsă verticală — sistemul de coordonate al presetului e
+     normalizat la pânză, nu la ecran.
+     Fără mască: masca radială de dinainte era tot un decupaj — ascundea
+     colțurile, dar lăsa un cerc care se plimba.
+     `--walk` (plimbarea) trebuie să fie cea mai din STÂNGA transformare, ca să
+     miște elementul deja așezat, și e COMPUSĂ — nu suprascrisă — altfel ar
+     șterge `translate(-50%,-50%)` și `--mdScale` (presetele 85 și 97).
+     Valoarea „oprit" e translate(0,0), NU `none`: `none` e valid doar singur, iar
+     `none translate(…)` invalidează toată declarația și pânza sare în colț. */
+  #md { position: fixed; left: 50%; top: 50%; z-index: 1; pointer-events: none;
+        mix-blend-mode: screen; transform-origin: center center;
+        transform: var(--walk, translate(0px, 0px)) translate(-50%, -50%)
+                   scale(var(--mdScale, 1)) }
+  /* `fade`, pe efect, nu global: stingere RADIALĂ a luminozității, cerută explicit
+     pentru 9 (Geiss Tunnel Mix), unde inelele care vin peste tine orbesc ecranul.
+     Nu e decupaj: nimic nu se taie, inelele ajung tot până în marginea ecranului,
+     doar că mai stinse. Elipsa are razele 50vw × 50vh, deci atinge marginile
+     ECRANULUI (nu ale pânzei pătrate, care e mai mare): plin în centru, ~50% la
+     jumătatea drumului, ~10% în margine. Ultimul stop NU e zero și dincolo de el
+     gradientul continuă cu aceeași valoare — deci nu apare nicio graniță. */
+  #md.fade {
+    -webkit-mask-image: radial-gradient(ellipse 50vw 50vh at 50% 50%,
+      #000 0%, rgba(0,0,0,.78) 28%, rgba(0,0,0,.50) 50%,
+      rgba(0,0,0,.26) 75%, rgba(0,0,0,.10) 100%);
+    mask-image: radial-gradient(ellipse 50vw 50vh at 50% 50%,
+      #000 0%, rgba(0,0,0,.78) 28%, rgba(0,0,0,.50) 50%,
+      rgba(0,0,0,.26) 75%, rgba(0,0,0,.10) 100%);
+  }
   /* Cursorul macOS, fix în centrul ECRANULUI (nu al pânzei): când halo-ul se
      plimbă, el rămâne pe loc, ca să se vadă unde va fi mouse-ul în realitate.
      Vârful e hotspot-ul, deci colțul din stânga-sus al glifei stă chiar pe centru.
      Mărimea e legată de fontul din linia de jos (--hud), ca proporția să fie reală. */
   #cursor { position: fixed; left: 50%; top: 50%; z-index: 2; pointer-events: none;
+            transform: var(--walk, translate(0px, 0px));
             width: calc(var(--hud) * 1.55); filter: drop-shadow(0 1px 2px rgba(0,0,0,.65)) }
   body.nocursor #cursor { display: none }
   /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
@@ -148,7 +168,6 @@
 </svg>
 <canvas id="full" class="hidden"></canvas>
 <canvas id="md" class="hidden"></canvas>
-<div id="wrap"><canvas id="c"></canvas></div>
 
 <div id="ui">
   <div id="chips"></div>
@@ -231,47 +250,33 @@ function drawBars() {
 }
 
 // ──────────────────────── geometrie / layout ──────────────────────────
-// Cerința: cercul de repaus să aibă diametrul = 80% din LĂȚIMEA ecranului.
-// Fiecare formulă își desenează inelul la o fracțiune proprie din R (0.42…0.58),
-// așa că R nu e „jumătate de ecran": îl calculăm din fracțiunea formulei curente,
-// ca toate cele șapte să iasă la același diametru vizibil.
+// Cerința lui Victor: cercul de repaus are diametrul = 80% din LĂȚIMEA ecranului.
+// Nu mai există pânză pătrată din care să se deducă o rază: TOTUL se desenează pe
+// #full, cât fereastra. Fiecare efect își declară în schimb un `scale` — raza lui
+// de referință ca fracțiune din LATURA MICĂ a ferestrei — iar `rad()` o traduce în
+// pixeli. Valorile vin, una câte una, din vechiul câmp `rest`: scale = 0.40 / rest,
+// adică exact aceeași mărime pe ecran ca înainte (0.40 = jumătate din cele 80%).
 const RING_OF_WIDTH = 0.80;
-const canvas = document.getElementById('c');
-const lctx = canvas.getContext('2d');
-const wrap = document.getElementById('wrap');
 const dpr = Math.min(2, window.devicePixelRatio || 1);   // 2 e destul; 3 doar încinge telefonul
-let R = 150;
+const rad = scale => (RING_OF_WIDTH / 2) * Math.min(innerWidth, innerHeight) / 0.40 * scale;
 
-const fb = [0, 1].map(() => { const c = document.createElement('canvas'); return { c, x: c.getContext('2d') }; });
-let fbCur = 0;
+// plimbarea, în pixeli. Se recalculează o dată pe cadru și se aplică ÎN DESEN
+// (originea pânzei), nu ca transformare CSS pe pânză: o pânză cât ecranul mutată
+// cu transform lasă o bandă goală la margine, adică fix dreptunghiul de care
+// scăpăm. Singura pânză mutată din CSS e #md, care nu se desenează de aici.
+let walkX = 0, walkY = 0;
 
-const P = { side_px: 300 };
 function layout() {
   const vw = window.innerWidth, vh = window.innerHeight;
-  const wanted = RING_OF_WIDTH * Math.min(vw, vh * 0.92) / 2;   // raza cerută, în px
-  // în modul MilkDrop pătratul e cât cercul cerut, nu cât are nevoie formula
-  // MilkDrop desenează pe tot pătratul, deci pătratul trebuie să încapă pe ecran;
-  // formulele proprii își cer singure marginea prin `rest`
-  R = mdOn ? Math.min(vw, vh * 0.92) / 2 : wanted / FORMULAS[fIdx].rest;
-  const side = Math.round(R * 2), px = Math.round(side * dpr);
-  P.side_px = side;
-  canvas.style.width = canvas.style.height = side + 'px';
-  canvas.width = canvas.height = px;
-  lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  wrap.style.width = wrap.style.height = side + 'px';
+  fullSize();
   // butterchurn nu scrie singur atributele canvasului (rămân 300×150, adică imagine
   // decentrată și la altă scară); le punem noi înainte de setRendererSize
-  if (pinned) {
-    const w = Math.round(vw * dpr), h = Math.round(vh * dpr);
-    mdCanvas.style.width = vw + 'px'; mdCanvas.style.height = vh + 'px';
-    mdCanvas.width = w; mdCanvas.height = h;
-    if (viz) viz.setRendererSize(w, h);
-  } else {
-    mdCanvas.style.width = mdCanvas.style.height = side + 'px';
-    mdCanvas.width = mdCanvas.height = px;
-    if (viz) viz.setRendererSize(px, px);
-  }
-  for (const f of fb) { f.c.width = f.c.height = px; }
+  // Pătrat cu latura cât DIMENSIUNEA MARE a ferestrei: acoperă ecranul în ambele
+  // direcții (deci nu i se vede marginea) și păstrează raportul presetului.
+  const side = Math.max(vw, vh), px = Math.round(side * dpr);
+  mdCanvas.style.width = mdCanvas.style.height = side + 'px';
+  mdCanvas.width = mdCanvas.height = px;
+  if (viz) viz.setRendererSize(px, px);
 }
 addEventListener('resize', layout);
 addEventListener('orientationchange', () => setTimeout(layout, 250));
@@ -392,68 +397,32 @@ function fogPath(pts, close, hue, width, alpha, push) {
   x.shadowBlur = 0;
 }
 
-// ── stratul de urmă: orice efect poate lăsa ceață în spate ───────────────────
-// Același truc ca la MilkDrop — cadrul precedent, redesenat puțin mărit și mai
-// stins — dar oferit ca strat generic, ca să-l poată folosi și fulgerele, și
-// inelele contrarotative, fără să-și rescrie fiecare bucla de feedback.
-function trailLayer({ DECAY = 0.90, ZOOM = 1.008, TWIST = 0.002 }, drawFn) {
-  const px = fb[0].c.width, half = px / 2;
-  const src = fb[fbCur], dst = fb[1 - fbCur];
-  dst.x.setTransform(1, 0, 0, 1, 0, 0);
-  dst.x.globalCompositeOperation = 'source-over';
-  dst.x.clearRect(0, 0, px, px);
-  dst.x.save();
-  dst.x.globalAlpha = DECAY;
-  dst.x.translate(half, half); dst.x.rotate(TWIST); dst.x.scale(ZOOM, ZOOM);
-  dst.x.drawImage(src.c, -half, -half, px, px);
-  dst.x.restore();
-
-  dst.x.save();
-  dst.x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  dst.x.translate(R, R);
-  dst.x.globalCompositeOperation = 'lighter';
-  const prev = CTX; CTX = dst.x;
-  drawFn();
-  CTX = prev;
-  dst.x.restore();
-
-  fbCur = 1 - fbCur;
-  lctx.drawImage(fb[fbCur].c, -R, -R, R * 2, R * 2);
-}
-
 // ── inelul MilkDrop ──────────────────────────────────────────────────────────
-function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = null, SPIN = 0.12, LIVE_ONLY = false }) {
+// Buclă de feedback proprie nu mai are: e exact ce face `tunnelLayer`, doar că pe
+// tot ecranul. Razele erau scrise în `half` (jumătate din latura pătratului, în
+// pixeli de dispozitiv); acum sunt în R, în pixeli CSS — aceeași valoare, fiindcă
+// tunnelLayer desenează deja cu transformarea dpr pusă.
+function milkdropRing(t, R, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = null, SPIN = 0.12, LIVE_ONLY = false }) {
   const amp = LIVE_ONLY ? vl : vs;
-  const px = fb[0].c.width, half = px / 2;
-  const src = fb[fbCur], dst = fb[1 - fbCur];
-  dst.x.setTransform(1, 0, 0, 1, 0, 0);
-  dst.x.globalCompositeOperation = 'source-over';
-  dst.x.clearRect(0, 0, px, px);
-  dst.x.save();
-  dst.x.globalAlpha = DECAY;
-  dst.x.translate(half, half); dst.x.rotate(TWIST); dst.x.scale(ZOOM, ZOOM);
-  dst.x.drawImage(src.c, -half, -half, px, px);
-  dst.x.restore();
-
-  dst.x.globalCompositeOperation = 'lighter';
-  dst.x.strokeStyle = HUE === null ? '#fff' : `hsl(${HUE % 360}, 85%, 70%)`;
-  dst.x.lineJoin = dst.x.lineCap = 'round';
-  dst.x.beginPath();
-  for (let k = 0; k <= SEGS; k++) {
-    const i = k / SEGS, th = i * Math.PI * 2 + t * SPIN;   // + = sensul acelor de ceas
-    const seam = Math.max(0, (i - 0.9) / 0.1);
-    const sample = amp(i) * (1 - seam) + amp(0) * seam;
-    const r = half * (R0 + AMP * sample);
-    const x = half + Math.cos(th) * r, y = half + Math.sin(th) * r;
-    k ? dst.x.lineTo(x, y) : dst.x.moveTo(x, y);
-  }
-  dst.x.closePath();
-  dst.x.lineWidth = W * 14 * dpr;  dst.x.globalAlpha = 0.090; dst.x.stroke();  // halo ×2
-  dst.x.lineWidth = W * 5.2 * dpr; dst.x.globalAlpha = 0.22;  dst.x.stroke();
-  dst.x.lineWidth = W * dpr;       dst.x.globalAlpha = 0.85;  dst.x.stroke();
-  dst.x.globalAlpha = 1;
-  fbCur = 1 - fbCur;
-  lctx.drawImage(fb[fbCur].c, -R, -R, R * 2, R * 2);
+  tunnelLayer({ DECAY, ZOOM, TWIST }, () => {
+    const x = CTX;
+    x.strokeStyle = HUE === null ? '#fff' : `hsl(${HUE % 360}, 85%, 70%)`;
+    x.lineJoin = x.lineCap = 'round';
+    x.beginPath();
+    for (let k = 0; k <= SEGS; k++) {
+      const i = k / SEGS, th = i * Math.PI * 2 + t * SPIN;   // + = sensul acelor de ceas
+      const seam = Math.max(0, (i - 0.9) / 0.1);
+      const sample = amp(i) * (1 - seam) + amp(0) * seam;
+      const r = R * (R0 + AMP * sample);
+      k ? x.lineTo(Math.cos(th) * r, Math.sin(th) * r)
+        : x.moveTo(Math.cos(th) * r, Math.sin(th) * r);
+    }
+    x.closePath();
+    x.lineWidth = W * 14;  x.globalAlpha = 0.090; x.stroke();  // halo ×2
+    x.lineWidth = W * 5.2; x.globalAlpha = 0.22;  x.stroke();
+    x.lineWidth = W;       x.globalAlpha = 0.85;  x.stroke();
+    x.globalAlpha = 1;
+  });
 }
 
 // ── orbite de particule (reconstrucția animației din film) ───────────────────
@@ -551,20 +520,28 @@ const orbScene = document.createElement('canvas'), orbSC = orbScene.getContext('
 const orbMipA = document.createElement('canvas'), orbMA = orbMipA.getContext('2d');
 const orbMipB = document.createElement('canvas'), orbMB = orbMipB.getContext('2d');
 let orbLast = 0;
-function orbSize(px) {
-  if (orbScene.width === px) return;
-  orbScene.width = orbScene.height = px;
-  orbMipA.width = orbMipA.height = Math.max(1, Math.round(px / ORB.BLOOM_TIGHT));
-  orbMipB.width = orbMipB.height = Math.max(1, Math.round(px / ORB.BLOOM_WIDE));
+// Scena orbitelor e acum cât FEREASTRA, nu cât pătratul. Bloom-ul nu se schimbă:
+// raza lui în pixeli e raportul sursă/mip (BLOOM_TIGHT / BLOOM_WIDE), care rămâne
+// același oricât de mare e pânza.
+function orbSize(w, h) {
+  if (orbScene.width === w && orbScene.height === h) return;
+  orbScene.width = w; orbScene.height = h;
+  orbMipA.width  = Math.max(1, Math.round(w / ORB.BLOOM_TIGHT));
+  orbMipA.height = Math.max(1, Math.round(h / ORB.BLOOM_TIGHT));
+  orbMipB.width  = Math.max(1, Math.round(w / ORB.BLOOM_WIDE));
+  orbMipB.height = Math.max(1, Math.round(h / ORB.BLOOM_WIDE));
   for (const c of [orbSC, orbMA, orbMB]) { c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'low'; }
 }
-function drawOrbits(t, density = 1, holeFrac = ORB.HOLE_FRAC, ringFrac = ORB.RING_FRAC) {
+// `Rref` = raza de referință a efectului (vezi rad()). `px` a rămas „latura
+// vechiului pătrat", fiindcă toate mărimile de mai jos sunt scrise în raport cu ea.
+function drawOrbits(t, Rref, density = 1, holeFrac = ORB.HOLE_FRAC, ringFrac = ORB.RING_FRAC) {
   const used = Math.max(3, Math.round(orbStrands.length * density));
   const gain = density < 1 ? 0.55 : 1;
-  const px = Math.round(R * 2 * dpr);
-  orbSize(px);
+  fullSize();
+  orbSize(fullW, fullH);
+  const px = Math.round(Rref * 2 * dpr);
   const dt = Math.min(0.05, orbLast ? t - orbLast : 0.016); orbLast = t;
-  const cx = px / 2, cy = px / 2;
+  const cx = (innerWidth / 2 + walkX) * dpr, cy = (innerHeight / 2 + walkY) * dpr;
   let bass = 0, treble = 0;
   for (let i = 0; i < NB / 3; i++) bass += band[i];
   for (let i = (NB * 2 / 3) | 0; i < NB; i++) treble += band[i];
@@ -578,7 +555,7 @@ function drawOrbits(t, density = 1, holeFrac = ORB.HOLE_FRAC, ringFrac = ORB.RIN
   const bright  = 1 + ORB.A_BRIGHT * level;
 
   orbSC.setTransform(1, 0, 0, 1, 0, 0);
-  orbSC.clearRect(0, 0, px, px);
+  orbSC.clearRect(0, 0, fullW, fullH);
   orbSC.globalCompositeOperation = 'lighter';
   const spinMul = 1 + ORB.A_SPIN * level;
 
@@ -641,13 +618,13 @@ function orbBloom(gWide, gTight) {
   orbMA.drawImage(orbScene, 0, 0, orbMipA.width, orbMipA.height);
   orbMB.clearRect(0, 0, orbMipB.width, orbMipB.height);
   orbMB.drawImage(orbScene, 0, 0, orbMipB.width, orbMipB.height);
-  lctx.save();
-  lctx.translate(-R, -R);
-  lctx.globalCompositeOperation = 'lighter';
-  lctx.globalAlpha = gWide;  lctx.drawImage(orbMipB, 0, 0, R * 2, R * 2);
-  lctx.globalAlpha = gTight; lctx.drawImage(orbMipA, 0, 0, R * 2, R * 2);
-  lctx.globalAlpha = 1;      lctx.drawImage(orbScene, 0, 0, R * 2, R * 2);
-  lctx.restore();
+  fctx.setTransform(1, 0, 0, 1, 0, 0);
+  fctx.clearRect(0, 0, fullW, fullH);
+  fctx.globalCompositeOperation = 'lighter';
+  fctx.globalAlpha = gWide;  fctx.drawImage(orbMipB, 0, 0, fullW, fullH);
+  fctx.globalAlpha = gTight; fctx.drawImage(orbMipA, 0, 0, fullW, fullH);
+  fctx.globalAlpha = 1;      fctx.drawImage(orbScene, 0, 0);
+  fctx.globalCompositeOperation = 'source-over';
 }
 
 // Lumină care pleacă STRICT spre exterior: un sector de inel exact peste unghiurile
@@ -685,15 +662,16 @@ function spike(ax, ay, bx, by, hue, width, alpha) {
 }
 
 const FORMULAS = [
-  { name: 'inel de undă — cerc perfect în tăcere, se rotește', rest: 0.66, draw(t) {
+  { name: 'inel de undă — cerc perfect în tăcere, se rotește', scale: 0.606, draw(t) {
       // nu mai folosește unda proprie pentru FORMĂ: în liniște amplitudinea e zero,
       // deci rămâne cerc. Ce continuă în tăcere e rotația, nu deformarea.
-      milkdropRing(t, { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.42, AMP: 0.21,
+      milkdropRing(t, rad(0.606), { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.42, AMP: 0.21,
                         W: 1.1, SPIN: 0.30, LIVE_ONLY: true });   // diametru 80%
   }},
-  { name: 'oscilogramă mov — albastrul și roșul suprapuse', rest: 0.66, draw(t) {
+  { name: 'oscilogramă mov — albastrul și roșul suprapuse', scale: 0.606, draw(t) {
+      const R = rad(0.606);
       splitWave();
-      trailLayer({ DECAY: 0.80, ZOOM: 1.007, TWIST: 0.002 }, () => {
+      tunnelLayer({ DECAY: 0.80, ZOOM: 1.007, TWIST: 0.002 }, () => {
         for (const kind of [0, 1]) {
           const src = kind ? HIGH : LOW;
           const gain = kind ? 2.4 : 1.1;
@@ -712,41 +690,51 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'coroană — numai barele, fără cerc fix', rest: 0.66, draw(t) {
+  { name: 'coroană — numai barele, fără cerc fix', scale: 0.606, draw(t) {
       // cercul galben care stătea fixat a fost scos; rămân doar barele
-      const r0 = R * 0.48, N = 96, WIDTH = 3.4;
-      for (let k = 0; k < N; k++) {
-        const u = k / N, th = u * Math.PI * 2 - t * 0.21;   // rotație +50%
-        const en = eAt((k * 7 % N) / N);
-        const len = R * (0.022 + 0.087 * en);
-        const hue = 32 + t * 5 + en * 40;
-        spike(Math.cos(th) * r0, Math.sin(th) * r0,
-              Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
-              hue, WIDTH, .40 + .5 * en);
-      }
+      const R = rad(0.606);
+      plainLayer(() => {
+        const r0 = R * 0.48, N = 96, WIDTH = 3.4;
+        for (let k = 0; k < N; k++) {
+          const u = k / N, th = u * Math.PI * 2 - t * 0.21;   // rotație +50%
+          const en = eAt((k * 7 % N) / N);
+          const len = R * (0.022 + 0.087 * en);
+          const hue = 32 + t * 5 + en * 40;
+          spike(Math.cos(th) * r0, Math.sin(th) * r0,
+                Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
+                hue, WIDTH, .40 + .5 * en);
+        }
+      });
   }},
-  { name: 'inel de segmente — nuanța se închide fără cusătură', rest: 0.64, draw(t) {
+  { name: 'inel de segmente — nuanța se închide fără cusătură', scale: 0.625, draw(t) {
       // nuanța parcurgea doar 170° și, la închiderea cercului, portocaliul ajungea
       // lipit de albastru. Acum face un tur COMPLET de 360°, deci ultimul segment
       // are exact nuanța primului și cusătura dispare.
-      const r0 = R * 0.50, M = 150, REST = 0.020;
-      for (let k = 0; k < M; k++) {
-        const u = k / M, th = u * Math.PI * 2 + t * 0.13;   // rotație +30%
-        const en = eAt((u * 4) % 1);   // patru sferturi care fac același lucru
-        const len = R * (REST + 0.115 * en);
-        const hue = 250 + 360 * u + t * 6;
-        spike(Math.cos(th) * r0, Math.sin(th) * r0,
-              Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
-              hue, 3.6, .55 + .4 * en);
-      }
+      const R = rad(0.625);
+      plainLayer(() => {
+        const r0 = R * 0.50, M = 150, REST = 0.020;
+        for (let k = 0; k < M; k++) {
+          const u = k / M, th = u * Math.PI * 2 + t * 0.13;   // rotație +30%
+          const en = eAt((u * 4) % 1);   // patru sferturi care fac același lucru
+          const len = R * (REST + 0.115 * en);
+          const hue = 250 + 360 * u + t * 6;
+          spike(Math.cos(th) * r0, Math.sin(th) * r0,
+                Math.cos(th) * (r0 + len), Math.sin(th) * (r0 + len),
+                hue, 3.6, .55 + .4 * en);
+        }
+      });
   }},
-  { name: 'lanț de fulgere — lasă valuri de ceață în urmă', rest: 0.80, draw(t) {
+  { name: 'lanț de fulgere — lasă valuri de ceață în urmă', scale: 0.50, draw(t) {
+      // Efectul care l-a scos din sărite pe Victor: urma lui umplea pătratul și i se
+      // vedea muchia. Acum pânza e tot ecranul, deci ceața se oprește abia în
+      // marginea ecranului — fiindcă acolo se termină ecranul, nu fiindcă a tăiat-o ceva.
+      const R = rad(0.50);
       // Înainte era un halou FIX sub linii: sectorul de inel stătea pe loc și doar
       // linia vibra deasupra lui. Acum lumina nu mai e desenată ca formă, ci
       // EMISĂ: în fiecare cadru fiecare arc scapă câțiva pufuleți, pe care stratul
       // de urmă îi împinge spre exterior. Emisia e inegală de la un arc la altul
       // (fiecare are propriul ritm), ca să nu iasă un inel uniform.
-      trailLayer({ DECAY: 0.84, ZOOM: 1.022, TWIST: 0.004 }, () => {
+      tunnelLayer({ DECAY: 0.84, ZOOM: 1.022, TWIST: 0.004 }, () => {
         const M = 7, SEG = 20, r0 = R * 0.46;
         for (let m = 0; m < M; m++) {
           const a0 = (m / M) * Math.PI * 2 + t * 0.20;
@@ -779,13 +767,13 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'orbite rare — gaură mare, blocuri clare', rest: 1.15, draw(t) {
-      // gaura din mijloc de 2,5 ori mai mare, iar inelul strâns spre interiorul
-      // pânzei (RING_FRAC mai mic) ca mărgelele din față să nu mai fie tăiate de
-      // marginea pătratului — de acolo venea senzația de imagine decupată.
-      drawOrbits(t, 0.5, 1.40, 0.22);
+  { name: 'orbite rare — gaură mare, blocuri clare', scale: 0.348, draw(t) {
+      // gaura din mijloc de 2,5 ori mai mare, iar inelul strâns (RING_FRAC mai mic).
+      // Pătratul care tăia mărgelele din față nu mai există deloc.
+      drawOrbits(t, rad(0.348), 0.5, 1.40, 0.22);
   }},
-  { name: 'două bile — ceață suflată din contur spre exterior', rest: 0.88, draw(t) {
+  { name: 'două bile — ceață suflată din contur spre exterior', scale: 0.4545, draw(t) {
+      const R = rad(0.4545);
       // Din film: două bile diametral opuse care se rotesc lent în jurul centrului,
       // iar de pe conturul lor se ridică o ceață care e mereu împinsă spre exterior
       // și răsucită de rotație. Ceața NU e desenată ca dâră: e stratul de urmă, cu
@@ -795,7 +783,7 @@ const FORMULAS = [
       // răsucește: rotație mare + împingere mică = spirala din film
       // împingere mare, răsucire mică: ceața pleacă radial față de centrul în
       // jurul căruia se rotesc, nu în coadă după ele
-      trailLayer({ DECAY: 0.930, ZOOM: 1.022, TWIST: 0.009 }, () => {
+      tunnelLayer({ DECAY: 0.930, ZOOM: 1.022, TWIST: 0.009 }, () => {
         const orbit = R * 0.52, rb = R * 0.095;   // cât să mai rămână loc de ceață
         const spin = t * 0.45;
         for (const side of [0, 1]) {
@@ -829,7 +817,7 @@ const FORMULAS = [
         }
       });
   }},
-  { name: 'raze ORB — petale rotitoare, fără flash', rest: 0.50, full: true, draw(t) {
+  { name: 'raze ORB — petale rotitoare, fără flash', scale: 0.50, draw(t) {
       // Din „ORB - Waaa". Presetul are TREI forme suprapuse (100 de laturi fiecare),
       // rotite cu viteze apropiate și una în sens invers: ang = q2, -1.05*q2 și
       // 0.899*q2 — de aici bătaia lentă dintre straturi. Culorile sunt chiar
@@ -886,7 +874,10 @@ const FORMULAS = [
   // Nu sunt reimplementări: pagina încarcă butterchurn (același motor ca în modul
   // MilkDrop) și îi fixează presetul, randat pe toată fereastra. Deci arată exact
   // ca originalul, inclusiv ce trece peste centru.
-  { name: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)' },
+  // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
+  // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
+  // ecranului) — merg tot până afară, doar că nu mai orbesc.
+  { name: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true },
   { name: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)' },
   { name: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast' },
   { name: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ' },
@@ -895,22 +886,27 @@ const FORMULAS = [
   { name: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker' },
   { name: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.62 },
   { name: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles' },
-  { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
+  // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
+  // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
+  { name: 'MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana' },
+  { name: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.80, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
       // Sclipirea rămâne: mărimea blocului respiră chiar și în liniște.
-      const px = Math.round(R * 2 * dpr);
-      orbSize(px);
+      fullSize();
+      orbSize(fullW, fullH);
+      const px = Math.round(rad(0.80) * 2 * dpr);          // vechea latură: scara mărimilor
       const half = px / 2, M = 132;
+      const cx = (innerWidth / 2 + walkX) * dpr, cy = (innerHeight / 2 + walkY) * dpr;
       orbSC.setTransform(1, 0, 0, 1, 0, 0);
-      orbSC.clearRect(0, 0, px, px);
+      orbSC.clearRect(0, 0, fullW, fullH);
       orbSC.globalCompositeOperation = 'lighter';
       for (let k = 0; k < M; k++) {
         const u = k / M;
         const th = u * Math.PI * 2 + t * 0.22;
         const amp = vl(u);                                  // zero în tăcere
         const r = half * (0.35 + 0.12 * amp);   // diametru 70%
-        const X = half + Math.cos(th) * r, Y = half + Math.sin(th) * r;
+        const X = cx + Math.cos(th) * r, Y = cy + Math.sin(th) * r;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
         const size = (4.2 + 1.2 * shimmer + 8.0 * Math.min(1, amp * 1.6)) * dpr;
         const hue = (u + t * 0.05) % 1;
@@ -941,24 +937,28 @@ function fullSize() {
   full.style.width = innerWidth + 'px'; full.style.height = innerHeight + 'px';
   for (const f of fbuf) { f.c.width = w; f.c.height = h; }
 }
-// același truc de feedback, dar pe tot ecranul și cu originea în centru
+// același truc de feedback, dar pe tot ecranul și cu originea în centru.
+// Centrul e centrul ECRANULUI plus plimbarea — adică exact vârful cursorului
+// desenat. Și pivotul zoom-ului îl urmează, ca urma să fie suflată din efect,
+// nu dintr-un punct fix de pe ecran.
 function tunnelLayer({ DECAY, ZOOM, TWIST }, drawFn) {
   fullSize();
+  const ox = innerWidth / 2 + walkX, oy = innerHeight / 2 + walkY;
   const src = fbuf[fbFull], dst = fbuf[1 - fbFull];
   dst.x.setTransform(1, 0, 0, 1, 0, 0);
   dst.x.globalCompositeOperation = 'source-over';
   dst.x.clearRect(0, 0, fullW, fullH);
   dst.x.save();
   dst.x.globalAlpha = DECAY;
-  dst.x.translate(fullW / 2, fullH / 2);
+  dst.x.translate(ox * dpr, oy * dpr);
   dst.x.rotate(TWIST);
   dst.x.scale(ZOOM, ZOOM);
-  dst.x.drawImage(src.c, -fullW / 2, -fullH / 2, fullW, fullH);
+  dst.x.drawImage(src.c, -ox * dpr, -oy * dpr, fullW, fullH);
   dst.x.restore();
 
   dst.x.save();
   dst.x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  dst.x.translate(innerWidth / 2, innerHeight / 2);
+  dst.x.translate(ox, oy);
   dst.x.globalCompositeOperation = 'lighter';
   const prev = CTX; CTX = dst.x;
   drawFn();
@@ -970,6 +970,23 @@ function tunnelLayer({ DECAY, ZOOM, TWIST }, drawFn) {
   fctx.clearRect(0, 0, fullW, fullH);
   fctx.drawImage(fbuf[fbFull].c, 0, 0);
 }
+
+// Efect FĂRĂ urmă: aceeași pânză de tot ecranul, ștearsă în fiecare cadru.
+// Înainte astea desenau în pătrat; n-aveau nevoie de el, doar așa erau scrise.
+function plainLayer(drawFn) {
+  fullSize();
+  fctx.setTransform(1, 0, 0, 1, 0, 0);
+  fctx.clearRect(0, 0, fullW, fullH);
+  fctx.save();
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fctx.translate(innerWidth / 2 + walkX, innerHeight / 2 + walkY);
+  fctx.globalCompositeOperation = 'lighter';
+  const prev = CTX; CTX = fctx;
+  drawFn();
+  CTX = prev;
+  fctx.restore();
+}
+
 
 // ── modul MilkDrop: presetele reale, încărcate la cerere ─────────────────────
 // Scripturile (≈1 MB) se aduc abia când apeși butonul, ca pagina să rămână ușoară
@@ -1004,16 +1021,15 @@ async function mdBoot() {
   return await mdEnable(true);
 }
 
-async function pinPreset(name, scale) {
+async function pinPreset(name, scale, fade) {
   if (!(await mdBoot())) return false;
   if (!mdPresets[name]) { label.textContent = 'presetul nu există: ' + name; return false; }
   pinned = name;
   // `scale` doar micșorează pânza pe ecran: compoziția presetului rămâne intactă,
   // spre deosebire de a-i schimba dimensiunea de randare, care i-ar schimba forma
   document.documentElement.style.setProperty('--mdScale', String(scale || 1));
-  mdCanvas.classList.add('bleed');
+  mdCanvas.classList.toggle('fade', !!fade);
   mdCanvas.classList.remove('hidden');
-  canvas.classList.add('hidden');
   full.classList.add('hidden');
   layout();
   viz.loadPreset(mdPresets[name], 0.6);
@@ -1023,9 +1039,9 @@ async function pinPreset(name, scale) {
 function unpin() {
   if (!pinned) return;
   pinned = null;
-  mdCanvas.classList.remove('bleed');
+  document.documentElement.style.setProperty('--mdScale', '1');
+  mdCanvas.classList.remove('fade');
   if (!mdOn) mdCanvas.classList.add('hidden');
-  canvas.classList.remove('hidden');
   layout();
 }
 
@@ -1069,15 +1085,17 @@ function mdLoad(i) {
 mdBtn.addEventListener('click', async ev => {
   ev.stopPropagation();
   if (!mdOn) {
-    mdOn = true;                       // întâi starea, ca layout() să dea pătratul corect
+    mdOn = true;
     mdBtn.classList.add('on');
+    // răsfoirea e acum tot pe toată fereastra: presetul fixat rămăsese singurul
+    // full-bleed, iar restul stăteau într-un pătrat mascat rotund — adică tot un decupaj
+    document.documentElement.style.setProperty('--mdScale', '1');
+    mdCanvas.classList.remove('fade');
     mdCanvas.classList.remove('hidden');
-    canvas.classList.add('hidden');
     if (!(await mdEnable())) {         // fără net: ne întoarcem curat
       mdOn = false;
       mdBtn.classList.remove('on');
       mdCanvas.classList.add('hidden');
-      canvas.classList.remove('hidden');
       layout();
       return;
     }
@@ -1087,7 +1105,6 @@ mdBtn.addEventListener('click', async ev => {
   }
   mdBtn.classList.toggle('on', mdOn);
   mdCanvas.classList.toggle('hidden', !mdOn);
-  canvas.classList.toggle('hidden', mdOn);
   layout();
 });
 
@@ -1120,17 +1137,25 @@ walkBtn.addEventListener('click', ev => {
   ev.stopPropagation();
   walk = !walk;
   walkBtn.classList.toggle('on', walk);
-  if (!walk) {
-    wrap.style.transform = 'translate(-50%, -50%)';
-    cursorEl.style.transform = '';
-    full.style.transform = '';
-  }
 });
-function walkOffset(t) {
-  if (!walk) return '';
+// Plimbarea se calculează O SINGURĂ DATĂ pe cadru și ajunge în TOATE straturile:
+//   · efectele proprii și apa o primesc ca deplasare a originii de desen;
+//   · cursorul și pânza MilkDrop o primesc prin variabila CSS `--walk`.
+// Bug-ul de dinainte: #md nu o primea deloc, deci cu „plimbare" pornită cursorul
+// pleca de lângă preset. Variabila e COMPUSĂ în fiecare regulă (`var(--walk) …`),
+// nu atribuită peste `transform`, altfel ștergea `scale(var(--mdScale))` și
+// presetele 85 și 97 săreau înapoi la mărime întreagă.
+function walkStep(t) {
+  if (!walk) {
+    walkX = walkY = 0;
+    document.documentElement.style.setProperty('--walk', 'translate(0px, 0px)');
+    return;
+  }
   const ax = innerWidth * 0.20, ay = innerHeight * 0.16;
-  return ` translate(${(ax * Math.sin(t * 0.21)).toFixed(1)}px,` +
-         `${(ay * Math.sin(t * 0.29 + 1.1)).toFixed(1)}px)`;
+  walkX = ax * Math.sin(t * 0.21);
+  walkY = ay * Math.sin(t * 0.29 + 1.1);
+  document.documentElement.style.setProperty('--walk',
+    `translate(${walkX.toFixed(1)}px,${walkY.toFixed(1)}px)`);
 }
 
 const curBtn = document.getElementById('curBtn');
@@ -1156,7 +1181,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:45:27 afade8c';
+const BUILD = '16:58:47 fbfad7b';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1191,17 +1216,17 @@ function pick(i) {
   if (F.preset) {
     label.textContent = 'se încarcă ' + F.name + '…';
     [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
-    pinPreset(F.preset, F.scale).then(ok => { if (ok) label.textContent = (i + 1) + ' — ' + F.name; });
+    pinPreset(F.preset, F.scale, F.fade).then(ok => { if (ok) label.textContent = (i + 1) + ' — ' + F.name; });
     poke();
     return;
   }
   unpin();
-  canvas.classList.toggle('hidden', !!F.full);
-  for (const f of fbuf) f.x.clearRect(0, 0, f.c.width, f.c.height);
+  for (const f of fbuf) f.x.clearRect(0, 0, f.c.width, f.c.height);   // fără urme de la formula veche
+  fctx.setTransform(1, 0, 0, 1, 0, 0);
+  fctx.clearRect(0, 0, fullW, fullH);
   [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
   label.textContent = (i + 1) + ' — ' + FORMULAS[i].name;
-  for (const f of fb) f.x.clearRect(0, 0, f.c.width, f.c.height);   // fără urme de la formula veche
-  layout();                                                         // fiecare formulă, același diametru
+  layout();
   poke();
 }
 
@@ -1226,34 +1251,23 @@ layout();
 const t0 = performance.now();
 (function frame(now) {
   const t = (now - t0) / 1000;
-  if (walk) {
-    // cursorul merge cu efectul: vârful lui trebuie să stea mereu în centrul lui,
-    // altfel plimbarea le desparte și nu mai vezi unde ar fi mouse-ul în realitate
-    const off = walkOffset(t);
-    wrap.style.transform = 'translate(-50%, -50%)' + off;
-    cursorEl.style.transform = off;
-    full.style.transform = off;
-  }
+  // cursorul merge cu efectul: vârful lui trebuie să stea mereu în centrul lui,
+  // altfel plimbarea le desparte și nu mai vezi unde ar fi mouse-ul în realitate
+  walkStep(t);
   analyser.getFloatTimeDomainData(wave);
   analyser.getByteFrequencyData(spec);
   updateBands();
   updateShape(t);
   drawBars();
   const F = FORMULAS[fIdx];
-  full.classList.toggle('hidden', mdOn || pinned || !F.full);
-  if ((mdOn || pinned) && viz) {
+  const md = mdOn || pinned;
+  full.classList.toggle('hidden', md || !!F.preset);
+  if (md && viz) {
     viz.render();
   } else if (F.preset) {
     // presetul încă se încarcă: nu are draw(), deci nu desenăm nimic în acest cadru
-  } else if (F.full) {
-    F.draw(t);
   } else {
-    lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    lctx.clearRect(0, 0, R * 2, R * 2);
-    lctx.translate(R, R);
-    lctx.globalCompositeOperation = 'lighter';
-    CTX = lctx;
-    FORMULAS[fIdx].draw(t);
+    F.draw(t);                 // fiecare efect își ia singur stratul (tunnel / plain)
   }
   requestAnimationFrame(frame);
 })(performance.now());

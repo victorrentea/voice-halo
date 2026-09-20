@@ -35,7 +35,15 @@ la coadă tocmai fiindcă încalcă criteriul.
   pagina e servită de pe GitHub Pages. iOS mai cere și `AudioContext.resume()`
   chiar în handler-ul gestului.
 - Cercul de repaus are diametrul = **80% din lățimea ecranului**. Fiecare efect
-  își declară `rest` (unde-i stă marginea vizibilă), iar pânza se scalează din el,
-  ca toate să iasă la același diametru.
+  își declară `scale` (raza lui de referință, ca fracțiune din latura mică a
+  ferestrei), ca toate să iasă la același diametru.
+- **Nimic nu se desenează într-un dreptunghi.** A existat o pânză pătrată centrată
+  (`#wrap`/`#c`) din care efectele își luau raza; efectele cu urmă îi umpleau
+  pătratul și li se vedea muchia, iar cu „plimbarea" pornită dreptunghiul rătăcea
+  vizibil pe ecran. Acum toate desenează pe pânza cât fereastra. Nici mască
+  rotundă nu există: un cerc care taie imaginea e același defect ca pătratul.
+  Presetele MilkDrop stau pe o pânză **pătrată cu latura max(lățime, înălțime)** —
+  acoperă ecranul în ambele direcții, deci nu i se vede marginea, dar păstrează
+  raportul presetului (întinsă pe ecran de telefon, orice cerc devenea elipsă).
 - Barele de jos arată spectrul (grave la stânga), ca să vezi imediat când intră vocea.
 - `wakeLock` ține ecranul aprins cât te uiți.
