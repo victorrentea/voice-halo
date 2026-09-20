@@ -78,6 +78,10 @@
   /* „ascunde barele": rămân doar butoanele, ca animația să aibă tot ecranul */
   body.bare #bars, body.bare #label, body.bare #chips { display: none }
   #wrap canvas { position: absolute; left: 0; top: 0 }
+  /* efectele „de tunel" nu se lasă ținute în pătratul halo-ului: urmele lor se
+     împrăștie pe tot ecranul, deci au pânza lor, cât fereastra */
+  #full { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+          mix-blend-mode: screen }
   .hidden { display: none !important }
   /* presetul umple pătratul cu negru; masca îi ascunde colțurile, iar `screen`
      de pe #wrap face negrul să dispară peste fundal */
@@ -132,6 +136,7 @@
   <path d="M1 1 L1 18.2 L5.2 14.1 L7.9 20 L10.6 18.8 L8 13.1 L13 13.1 Z"
         fill="#a06bff" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>
 </svg>
+<canvas id="full" class="hidden"></canvas>
 <div id="wrap"><canvas id="c"></canvas><canvas id="md" class="hidden"></canvas></div>
 
 <div id="ui">
@@ -805,6 +810,66 @@ const FORMULAS = [
         }
       });
   }},
+  { name: 'tunel Geiss — urme concentrice pe tot ecranul', rest: 0.50, full: true, draw(t) {
+      // Copiat din presetul MilkDrop „Geiss - 3 layers (Tunnel Mix)": o undă
+      // circulară desenată ADITIV peste cadrul precedent mărit cu 3,3% (zoom=1.033
+      // în preset) — de acolo vin urmele care cresc concentric. Aici nu mai sunt
+      // ținute în pătratul halo-ului: pânza e cât ecranul, deci se împrăștie până
+      // la margini. Stingerea e mai rapidă decât în preset, cum ai cerut.
+      // pasul e mai mare decât în preset (1.033): acolo urmele stăteau într-un
+      // cadru mic, aici au tot ecranul de străbătut până se sting
+      tunnelLayer({ DECAY: 0.855, ZOOM: 1.062, TWIST: 0.0035 }, () => {
+        const base = Math.min(innerWidth, innerHeight) * 0.115;   // gaura ×2
+        const N = 360, pts = [];
+        for (let k = 0; k <= N; k++) {
+          const u = k / N, th = u * Math.PI * 2 + t * 0.18;
+          const seam = Math.max(0, (u - 0.9) / 0.1);
+          const amp = vs(u) * (1 - seam) + vs(0) * seam;
+          const r = base * (1 + 1.05 * amp);
+          pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+        }
+        // în preset culoarea undei e împinsă pe roșu și plimbată pe cadre
+        const hue = (t * 26) % 360;
+        fogPath(pts, true, hue, 13, .10, 0.02);
+        strokePath(pts, true, hue, 2.2, .95);
+      });
+  }},
+  { name: 'cazan Geiss — panglici moi, pe tot ecranul', rest: 0.50, full: true, draw(t) {
+      // Copiat din „Geiss - Cauldron - painterly 2": undă circulară (wave_mode 1)
+      // cu warp, centru care derivă lent și culori plimbate de sinusoide — chiar
+      // formulele din preset: wave_r += .35*(.6*sin(3.98t)+.4*sin(11.047t)) etc.
+      // Împingerea e mică (zoom 1.014 în preset), deci ies panglici moi, nu tunel.
+      // Centrul derivă puțin, dar raza de repaus e mult mai mare decât deriva,
+      // așa că nimic nu ajunge peste mouse.
+      tunnelLayer({ DECAY: 0.93, ZOOM: 1.020, TWIST: 0.0018 }, () => {
+        const S = Math.min(innerWidth, innerHeight);
+        const cx = S * 0.030 * (0.6 * Math.sin(0.374 * t) + 0.4 * Math.sin(0.294 * t));
+        const cy = S * 0.030 * (0.6 * Math.sin(0.393 * t) + 0.4 * Math.sin(0.223 * t));
+        const r0 = S * 0.165;
+        const r = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(3.980 * t) + 0.4 * Math.sin(11.047 * t))));
+        const g = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(0.835 * t) + 0.4 * Math.sin(1.081 * t))));
+        const bl = Math.round(255 * (0.65 + 0.35 * (0.6 * Math.sin(0.814 * t) + 0.4 * Math.sin(1.011 * t))));
+        const col = a => `rgba(${Math.max(0, Math.min(255, r))},${Math.max(0, Math.min(255, g))},` +
+                         `${Math.max(0, Math.min(255, bl))},${a})`;
+        const N = 420;
+        CTX.beginPath();
+        for (let k = 0; k <= N; k++) {
+          const u = k / N, th = u * Math.PI * 2 + t * 0.10;
+          const seam = Math.max(0, (u - 0.9) / 0.1);
+          const amp = vs(u) * (1 - seam) + vs(0) * seam;
+          // „warp": două lobi lenți care deformează inelul, ca în preset
+          const warp = 1 + 0.218 * 0.35 * Math.sin(3 * th + t * 0.6)
+                         + 0.218 * 0.20 * Math.sin(5 * th - t * 0.4);
+          const rr = r0 * warp * (1 + 0.75 * amp);
+          const x = cx + Math.cos(th) * rr, y = cy + Math.sin(th) * rr;
+          k ? CTX.lineTo(x, y) : CTX.moveTo(x, y);
+        }
+        CTX.closePath();
+        CTX.lineJoin = CTX.lineCap = 'round';
+        CTX.lineWidth = 16; CTX.strokeStyle = col(0.06); CTX.stroke();
+        CTX.lineWidth = 2.6; CTX.strokeStyle = col(0.85); CTX.stroke();
+      });
+  }},
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
@@ -836,6 +901,50 @@ const FORMULAS = [
   }},
 ];
 
+
+
+// ── pânza de tot ecranul + feedback-ul ei ────────────────────────────────────
+const full = document.getElementById('full');
+const fctx = full.getContext('2d');
+const fbuf = [0, 1].map(() => { const c = document.createElement('canvas'); return { c, x: c.getContext('2d') }; });
+let fbFull = 0, fullW = 0, fullH = 0;
+function fullSize() {
+  const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+  if (w === fullW && h === fullH) return;
+  fullW = w; fullH = h;
+  full.width = w; full.height = h;
+  full.style.width = innerWidth + 'px'; full.style.height = innerHeight + 'px';
+  for (const f of fbuf) { f.c.width = w; f.c.height = h; }
+}
+// același truc de feedback, dar pe tot ecranul și cu originea în centru
+function tunnelLayer({ DECAY, ZOOM, TWIST }, drawFn) {
+  fullSize();
+  const src = fbuf[fbFull], dst = fbuf[1 - fbFull];
+  dst.x.setTransform(1, 0, 0, 1, 0, 0);
+  dst.x.globalCompositeOperation = 'source-over';
+  dst.x.clearRect(0, 0, fullW, fullH);
+  dst.x.save();
+  dst.x.globalAlpha = DECAY;
+  dst.x.translate(fullW / 2, fullH / 2);
+  dst.x.rotate(TWIST);
+  dst.x.scale(ZOOM, ZOOM);
+  dst.x.drawImage(src.c, -fullW / 2, -fullH / 2, fullW, fullH);
+  dst.x.restore();
+
+  dst.x.save();
+  dst.x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  dst.x.translate(innerWidth / 2, innerHeight / 2);
+  dst.x.globalCompositeOperation = 'lighter';
+  const prev = CTX; CTX = dst.x;
+  drawFn();
+  CTX = prev;
+  dst.x.restore();
+
+  fbFull = 1 - fbFull;
+  fctx.setTransform(1, 0, 0, 1, 0, 0);
+  fctx.clearRect(0, 0, fullW, fullH);
+  fctx.drawImage(fbuf[fbFull].c, 0, 0);
+}
 
 // ── modul MilkDrop: presetele reale, încărcate la cerere ─────────────────────
 // Scripturile (≈1 MB) se aduc abia când apeși butonul, ca pagina să rămână ușoară
@@ -993,6 +1102,8 @@ FORMULAS.forEach((f, i) => {
 });
 function pick(i) {
   fIdx = i;
+  canvas.classList.toggle('hidden', !!FORMULAS[i].full);
+  for (const f of fbuf) f.x.clearRect(0, 0, f.c.width, f.c.height);
   [...chips.children].forEach((c, k) => c.classList.toggle('on', k === i));
   label.textContent = (i + 1) + ' — ' + FORMULAS[i].name;
   for (const f of fb) f.x.clearRect(0, 0, f.c.width, f.c.height);   // fără urme de la formula veche
@@ -1027,8 +1138,12 @@ const t0 = performance.now();
   updateBands();
   updateShape(t);
   drawBars();
+  const F = FORMULAS[fIdx];
+  full.classList.toggle('hidden', mdOn || !F.full);
   if (mdOn && viz) {
     viz.render();
+  } else if (F.full) {
+    F.draw(t);
   } else {
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     lctx.clearRect(0, 0, R * 2, R * 2);
