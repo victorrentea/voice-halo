@@ -17,21 +17,37 @@ să se știe exact de la ce sursă s-a portat și ce a rămas de încorporat ult
 Ce se schimbă **după** un tag intră în predarea următoare: diff între tag-uri, nu
 ghicit. Aplicația instalată pe Mac e la `773e249`, dinaintea lucrărilor de mai jos.
 
-## În lucru la agentul de Swift
+## Decizia pe motor — luată, cu cifre
 
-- [ ] **Decizia pe motor** — trei rute comparate cu cifre măsurate (pagina în
-      `WKWebView`, `projectM` nativ, motor scris în Metal). Din fișierele de pe
-      disc reiese că a pornit pe ruta cu pagina: `HaloPage.swift`,
-      `assets/voice-halo/`, `tools/vendor-voice-halo.sh`, iar `HaloEffects.swift`
-      (reimplementările în CoreGraphics) e șters. Raportul n-a venit încă.
-- [ ] **Decupajul pătrat** — panoul își ia mărimea din inel (`core × (1+spread) ×
-      (1+swell)` ≈ 422 pt), deci efectele gândite pentru tot ecranul sunt tăiate.
-      Panoul devine cât ecranul pentru toate, în afară de fulgerele implicite.
-- [ ] **Un singur meniu `Halo fx`**, cu ⚡ pe presete, nume englezești, ordinea în
-      bară: sursă → engine → Halo fx.
-- [ ] **Tunnel** cu rotația dublă (se modifică `rot` în preset, nu se rotește pânza).
-- [ ] **Lagoon** — scos din Swift la cererea lui („renunță la meteorii desenați").
-      De reconfirmat: în galerie, capturat întreg, îi place cum arată.
+**Ruta A, în două pagini.** Efectele proprii rulează **chiar pagina asta** într-un
+`WKWebView`; presetele MilkDrop rulează butterchurn în pagina lor (`halo.html`);
+inelul de fulgere rămâne **nativ** și nu atinge niciun WebView.
+
+Ce a decis-o: nativ în CoreGraphics, un singur pas de urmă pe tot ecranul costă
+**48–86 ms**, iar inelul cu blur **58 ms** — peste bugetul de 33 ms. Un fix nativ
+ar fi însemnat un renderer în Metal, adică rescriere. Cele 1330 de linii de
+CoreGraphics au fost șterse, nu reparate.
+
+`projectM` 4.1.7 merge și e rapid (2–3 ms/cadru), dar **trei din cele șapte
+presete alese (Tunnel, Tendrils, Water Dream) nu există ca `.milk` nicăieri**,
+doar ca JSON butterchurn — deci ruta nativă ar livra alte presete.
+
+Livrat în `b7eeef4` + `6b0edec`: meniu unic `Halo fx`, ⚡ pe presete, ordinea în
+bară, panou cât ecranul, plasă de siguranță (dacă pagina pică → film), pagina
+vendorizată la un commit fixat.
+
+## Deschise
+
+- [ ] **Tunnel: 0.42 sau 0.33?** Aplicația îl randa la scara 1, nu 0.5, deci „3×
+      mai mic din ce vedeam" ar fi 0.33. Un singur număr în `HaloStyle.swift`.
+- [ ] **Presetele ies întunecate în pagina întreagă** — măsurat pe framebuffer-ul
+      motorului (2/255 față de 67/255 în `halo.html`), cauză necunoscută după 40
+      de minute de bisecție. De aceea presetele rulează în pagina lor separată.
+- [ ] **Fără limitare la 30 fps** — constantele de stingere sunt per cadru; un cap
+      la 30 ar înjumătăți ceața dacă nu sunt legate întâi de timp.
+- [ ] **Energia nemăsurată** cu `powermetrics`.
+- [ ] **Lagoon** — scos din Swift la cererea lui, dar în galerie, capturat întreg,
+      i-a plăcut. De reconfirmat dacă rămâne scos.
 
 ## Reguli care se aplică peste tot
 
