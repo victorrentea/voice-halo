@@ -1081,9 +1081,7 @@ function drawWater(t) {
 // și cele „numai linii" — restul umplu cadrul cu fundal colorat, adică exact ce nu
 // vrem peste o aplicație.
 let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0, pinned = null;
-// în embed motorul primește o pânză NOUĂ, nelegată de DOM, exact ca în vechiul
-// halo.html (bisect 2026-09-20: pe #md scos din DOM presetele ieșeau stinse)
-const mdCanvas = EMBED ? document.createElement('canvas') : document.getElementById('md');
+const mdCanvas = document.getElementById('md');
 const mdBtn = document.getElementById('mdBtn');
 
 function loadScript(src) {
@@ -1166,7 +1164,7 @@ async function mdEnable(bootOnly) {
     // altfel rămâne cu viewport-ul vechi și presetul se desenează la altă scară,
     // înghesuit într-un colț. De aceea layout() rulează înainte, cu mdOn deja pus.
     layout();
-    viz = (butterchurn.default || butterchurn).createVisualizer(EMBED ? new (window.AudioContext || window.webkitAudioContext)() : actx, mdCanvas,
+    viz = (butterchurn.default || butterchurn).createVisualizer(actx, mdCanvas,
             { width: mdCanvas.width, height: mdCanvas.height, pixelRatio: 1 });
     viz.setRendererSize(mdCanvas.width, mdCanvas.height);
     if (micSource) viz.connectAudio(micSource);
@@ -1475,12 +1473,6 @@ function keyPass(mode, src) {
     keyCv.width = src.width; keyCv.height = src.height;
     keyCv.style.width = src.style.width; keyCv.style.height = src.style.height;
   }
-  let before = null;
-  if ((keyFrames + 1) % 30 === 0 && viz && viz.renderer && viz.renderer.gl.canvas === src) {
-    const g = viz.renderer.gl, q = new Uint8Array(4); let mm = 0;
-    for (let i = 0; i < 16; i++) for (let j = 0; j < 16; j++) { g.readPixels(Math.floor((i + .5) * src.width / 16), Math.floor((j + .5) * src.height / 16), 1, 1, g.RGBA, g.UNSIGNED_BYTE, q); mm += Math.max(q[0], q[1], q[2]); }
-    before = +(mm / 256).toFixed(1);
-  }
   gl.bindTexture(gl.TEXTURE_2D, keyTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
   gl.viewport(0, 0, keyCv.width, keyCv.height);
@@ -1493,16 +1485,7 @@ function keyPass(mode, src) {
       gl.readPixels(Math.floor((i + .5) * keyCv.width / N), Math.floor((j + .5) * keyCv.height / N), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       a += px[3]; m += Math.max(px[0], px[1], px[2]);
     }
-    let eng = null;
-    if (viz && viz.renderer && viz.renderer.gl && viz.renderer.gl.canvas === src) {
-      const g = viz.renderer.gl, q = new Uint8Array(4); let mm = 0;
-      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-        g.readPixels(Math.floor((i + .5) * src.width / N), Math.floor((j + .5) * src.height / N), 1, 1, g.RGBA, g.UNSIGNED_BYTE, q);
-        mm += Math.max(q[0], q[1], q[2]);
-      }
-      eng = { rgbMax: +(mm / N / N).toFixed(1), err: g.getError() };
-    }
-    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src), engineReadPixels: eng, engineBeforeTexImage: before, attrs: viz && viz.renderer ? viz.renderer.gl.getContextAttributes() : null, keyAttrs: gl.getContextAttributes() };
+    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src) };
   }
 }
 let keyFrames = 0, keyStats = null;
@@ -1557,9 +1540,8 @@ function start() { if (running) return; running = true; requestAnimationFrame(fr
 if (EMBED) {
   // pânzele opace pe care le cheiază #key ies din DOM (după ce toate referințele
   // de mai sus le-au găsit): desenate în continuare, dar niciodată compuse
-  document.getElementById('md').remove();
+  mdCanvas.remove();
   waterCv.remove();
-  if (EMBED_PARAMS.has('dbg')) { document.body.appendChild(mdCanvas); mdCanvas.style.cssText = 'position:fixed;left:0;top:0;width:864px;height:864px;z-index:5;opacity:1'; }
   const webgl = keySetup();
   window.halo = {
     pick(i) { pick(i); return FORMULAS[i] ? FORMULAS[i].name : 'no such effect: ' + i; },
@@ -1577,13 +1559,8 @@ if (EMBED) {
         full: { w: full.width, hidden: full.classList.contains('hidden') },
         presetVals: viz && viz.renderer && viz.renderer.preset ? Object.keys(viz.renderer.preset).slice(0, 8) : null,
         vizTime: viz && viz.renderer ? viz.renderer.time : null, frames: keyFrames,
-        engine: viz && viz.renderer ? (r => ({ blending: r.blending, blendProgress: r.blendProgress, tex: [r.texsizeX, r.texsizeY], mesh: [r.mesh_width, r.mesh_height],
-          fps: +r.fps.toFixed(1), frameNum: r.frameNum, aspect: [r.aspectx, r.aspecty], levels: r.audioLevels && { bass: +r.audioLevels.bass.toFixed(2), mid: +r.audioLevels.mid.toFixed(2), treb: +r.audioLevels.treb.toFixed(2), bass_att: +r.audioLevels.bass_att.toFixed(2) },
-          imm: Array.from(r.audioLevels.imm).map(v => +v.toFixed(0)), longAvg: Array.from(r.audioLevels.longAvg).map(v => +v.toFixed(0)),
-          lost: r.gl.isContextLost(), sameCanvas: r.gl.canvas === mdCanvas, dbw: r.gl.drawingBufferWidth, keyLost: keyGL && keyGL.isContextLost(),
-          shaders: (g => Object.fromEntries(['warpShader','compShader','outputShader','blurShader1','resampleShader'].map(k => [k, r[k] && r[k].shaderProgram ? [g.getProgramParameter(r[k].shaderProgram, g.LINK_STATUS), (g.getProgramInfoLog(r[k].shaderProgram) || '').slice(0, 120)] : 'none'])))(r.gl), glErr: r.gl.getError(),
-          vp: Array.from(r.gl.getParameter(r.gl.VIEWPORT)), size: [r.width, r.height, r.pixelRatio, r.textureRatio, r.outputFXAA, r.gl.drawingBufferWidth, r.gl.drawingBufferHeight, r.gl.canvas.width, r.gl.canvas.height], frameVars: (v => v && Object.fromEntries(['zoom','rot','cx','cy','dx','dy','sx','sy','wave_x','wave_y','decay','warp','echo_zoom','echo_alpha','aspectx','aspecty','pixelsx','pixelsy','meshx','meshy'].map(k => [k, typeof v[k] === 'number' ? +v[k].toFixed(3) : v[k]])))(r.presetEquationRunner && r.presetEquationRunner.mdVSFrame),
-          warp: (r.preset.warp || '').length, comp: (r.preset.comp || '').length, baseZoom: r.preset.baseVals && r.preset.baseVals.zoom, baseRot: r.preset.baseVals && r.preset.baseVals.rot }))(viz.renderer) : null,
+        engine: viz && viz.renderer ? (r => ({ blending: r.blending, tex: [r.texsizeX, r.texsizeY], fps: +r.fps.toFixed(1), frameNum: r.frameNum,
+          levels: { bass: +r.audioLevels.bass.toFixed(2), mid: +r.audioLevels.mid.toFixed(2), treb: +r.audioLevels.treb.toFixed(2) }, lost: r.gl.isContextLost() }))(viz.renderer) : null,
         mdScale: getComputedStyle(document.documentElement).getPropertyValue('--mdScale'),
         walk: getComputedStyle(document.documentElement).getPropertyValue('--walk'),
         audio: { lo, hi, level: +levelNow.toFixed(3) }, dpr, vw: innerWidth, vh: innerHeight });
