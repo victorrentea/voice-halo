@@ -136,12 +136,13 @@
      au deja alfa corect (linii `lighter` pe pânză goală); pânzele OPACE — #md
      (motorul MilkDrop șterge pe negru) și #water (scena) — trec printr-o
      „cheie": #key le copiază cu alfa = max(r,g,b), deci negrul devine
-     transparent și lumina rămâne lumină. Ele stau ascunse (`visibility`, nu
-     `display`: WebGL desenează oricum, dar #key trebuie să-și ia mărimea). */
+     transparent și lumina rămâne lumină. Ele sunt SCOASE din DOM (vezi `EMBED`
+     în script), ca pânza nelegată din vechiul halo.html: lăsate în pagină, cu
+     `visibility: hidden` #key citea din pânza WebGL aproape nimic, iar cu
+     `display: none` chiar nimic — WebKit citește altfel o pânză compusă. */
   html.embed, body.embed { background: transparent !important }
   body.embed::before, body.embed #ui, body.embed #cursor, body.embed #ide { display: none !important }
   body.embed #full { mix-blend-mode: normal }
-  body.embed #md, body.embed #water { visibility: hidden }
   #key { display: none; z-index: 1; pointer-events: none }
   body.embed #key.md, body.embed #key.full { display: block }
   #key.full { position: fixed; inset: 0; transform: none }
@@ -1278,7 +1279,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '18:03:06 2a789b9';
+const BUILD = '18:21:25 f410aee';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
@@ -1363,6 +1364,7 @@ poke();
 const EMU_N = 2048, EMU_IN = Math.ceil(EMU_N / 3);
 const emuRe = new Float32Array(EMU_N), emuIm = new Float32Array(EMU_N), emuMag = new Float32Array(EMU_N / 2);
 const emuWin = new Float32Array(EMU_N);
+const mdBytes = new Uint8Array(1024).fill(128);          // pentru motorul MilkDrop, în embed
 for (let i = 0; i < EMU_N; i++)
   emuWin[i] = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / EMU_N) + 0.08 * Math.cos(4 * Math.PI * i / EMU_N);
 const emuRev = new Uint16Array(EMU_N);
@@ -1396,6 +1398,11 @@ function emuAudio(b64) {
     const a = pcm[from + k] || 0, b = pcm[from + k + 1] !== undefined ? pcm[from + k + 1] : a;
     wave[i] = a + (b - a) * f;
   }
+  // motorul MilkDrop primește eșantioanele BRUTE de 16 kHz (ultimele 1024, 64 ms),
+  // ca în vechiul halo.html — nu fereastra interpolată: aceea îi îngrămădea toată
+  // energia în „bass" și presetele ieșeau stinse (măsurat 2026-09-20)
+  const mdFrom = Math.max(0, n - 1024);
+  for (let i = 0; i < 1024; i++) mdBytes[i] = Math.max(0, Math.min(255, Math.round(128 + (pcm[mdFrom + i] || 0) * 127)));
   for (let i = 0; i < EMU_N; i++) { emuRe[i] = wave[i] * emuWin[i]; emuIm[i] = 0; }
   emuFFT();
   const tau = 0.72 * 0.72;
@@ -1454,6 +1461,23 @@ function keyPass(mode, src) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
   gl.viewport(0, 0, keyCv.width, keyCv.height);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  // diagnostic (halo.probe): o mostră de 16×16 din ieșire, luată ÎN cadru — după
+  // compunere pânza e ștearsă, deci o citire de mai târziu ar spune mereu „negru"
+  if (++keyFrames % 30 === 0) {
+    const px = new Uint8Array(4), N = 16; let a = 0, m = 0;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      gl.readPixels(Math.floor((i + .5) * keyCv.width / N), Math.floor((j + .5) * keyCv.height / N), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      a += px[3]; m += Math.max(px[0], px[1], px[2]);
+    }
+    keyStats = { alpha: +(a / N / N).toFixed(1), rgbMax: +(m / N / N).toFixed(1), src: meanOf(src) };
+  }
+}
+let keyFrames = 0, keyStats = null;
+function meanOf(cv) {
+  try { const c = document.createElement('canvas'); c.width = c.height = 32;
+    const x = c.getContext('2d'); x.drawImage(cv, 0, 0, 32, 32); const d = x.getImageData(0, 0, 32, 32).data;
+    let sum = 0, a = 0; for (let i = 0; i < d.length; i += 4) { sum += Math.max(d[i], d[i + 1], d[i + 2]); a += d[i + 3]; }
+    return { rgbMax: +(sum / (d.length / 4)).toFixed(1), alpha: +(a / (d.length / 4)).toFixed(1) }; } catch (e) { return String(e); }
 }
 
 // ─────────────────────────────── bucla ────────────────────────────────
@@ -1478,7 +1502,10 @@ function frame(now) {
   full.classList.toggle('hidden', md || !!F.preset || !!F.water);
   waterCv.classList.toggle('hidden', md || !F.water);
   if (md && viz) {
-    viz.render();
+    // în embed motorul n-are microfon conectat: primește aceleași eșantioane ca
+    // octeții pe care i-ar fi produs analizorul lui (ultimele 1024 ale ferestrei)
+    if (EMBED) viz.render({ audioLevels: { timeByteArray: mdBytes, timeByteArrayL: mdBytes, timeByteArrayR: mdBytes } });
+    else viz.render();
     if (EMBED) keyPass('md', mdCanvas);
   } else if (F.preset) {
     // presetul încă se încarcă: nu are draw(), deci nu desenăm nimic în acest cadru
@@ -1495,6 +1522,10 @@ function frame(now) {
 function start() { if (running) return; running = true; requestAnimationFrame(frame); }
 
 if (EMBED) {
+  // pânzele opace pe care le cheiază #key ies din DOM (după ce toate referințele
+  // de mai sus le-au găsit): desenate în continuare, dar niciodată compuse
+  mdCanvas.remove();
+  waterCv.remove();
   const webgl = keySetup();
   window.halo = {
     pick(i) { pick(i); return FORMULAS[i] ? FORMULAS[i].name : 'no such effect: ' + i; },
@@ -1503,6 +1534,19 @@ if (EMBED) {
     start() { clearTrail(); start(); },
     stop() { running = false; },
     names() { return FORMULAS.map(f => f.name); },
+    // diagnostic: ce vede pagina și cât de luminoase sunt pânzele (host: WT_HALO_PAGE_PROBE=1)
+    probe() {
+      let lo = 255, hi = 0; for (let i = 0; i < 1024; i++) { lo = Math.min(lo, mdBytes[i]); hi = Math.max(hi, mdBytes[i]); }
+      return JSON.stringify({ fIdx, pinned, mdOn, viz: !!viz, running, keyMode, keyClass: keyCv.className,
+        key: { w: keyCv.width, h: keyCv.height, cssW: keyCv.style.width, inFrame: keyStats },
+        md: { w: mdCanvas.width, h: mdCanvas.height, cssW: mdCanvas.style.width },
+        full: { w: full.width, hidden: full.classList.contains('hidden') },
+        presetVals: viz && viz.renderer && viz.renderer.preset ? Object.keys(viz.renderer.preset).slice(0, 8) : null,
+        vizTime: viz && viz.renderer ? viz.renderer.time : null, frames: keyFrames,
+        mdScale: getComputedStyle(document.documentElement).getPropertyValue('--mdScale'),
+        walk: getComputedStyle(document.documentElement).getPropertyValue('--walk'),
+        audio: { lo, hi, level: +levelNow.toFixed(3) }, dpr, vw: innerWidth, vh: innerHeight });
+    },
     caps() { return { webgl, dpr, w: innerWidth, h: innerHeight }; },
   };
   post({ event: 'ready', webgl, dpr, w: innerWidth, h: innerHeight, names: FORMULAS.map(f => f.name) });
