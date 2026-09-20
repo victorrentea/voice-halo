@@ -702,6 +702,43 @@ const FORMULAS = [
       // se citesc individual, în loc să se topească într-un ghem strălucitor.
       drawOrbits(t, 0.5);
   }},
+  { name: 'două bile — ceață suflată din contur spre exterior', rest: 0.71, draw(t) {
+      // Din film: două bile diametral opuse care se rotesc lent în jurul centrului,
+      // iar de pe conturul lor se ridică o ceață care e mereu împinsă spre exterior
+      // și răsucită de rotație. Ceața NU e desenată ca dâră: e stratul de urmă, cu
+      // zoom > 1 (o împinge în afară) și o rotire mică pe cadru (i-o răsucește).
+      // Fiindcă stratul se compune aditiv sub bile, ceața veche trece peste ele.
+      // raportul dintre TWIST și ZOOM decide dacă ceața iese drept sau se
+      // răsucește: rotație mare + împingere mică = spirala din film
+      trailLayer({ DECAY: 0.935, ZOOM: 1.010, TWIST: 0.030 }, () => {
+        const orbit = R * 0.40, rb = R * 0.105;
+        const spin = t * 0.45;
+        for (const side of [0, 1]) {
+          const a = spin + side * Math.PI;
+          const cx = Math.cos(a) * orbit, cy = Math.sin(a) * orbit;
+          const hue = side ? 196 : 86;                  // albastru / verde-gălbui
+
+          // ceața care se ridică de pe contur: un nor moale, chiar pe bilă, pe care
+          // stratul de urmă îl va împinge în afară cadru după cadru
+          const g = CTX.createRadialGradient(cx, cy, rb * 0.2, cx, cy, rb * 2.1);
+          g.addColorStop(0.00, `hsla(${hue}, 85%, 62%, ${0.038 + 0.060 * levelNow})`);
+          g.addColorStop(0.45, `hsla(${hue}, 85%, 60%, ${0.014 + 0.030 * levelNow})`);
+          g.addColorStop(1.00, `hsla(${hue}, 85%, 60%, 0)`);
+          CTX.beginPath(); CTX.arc(cx, cy, rb * 2.1, 0, Math.PI * 2);
+          CTX.fillStyle = g; CTX.fill();
+
+          // conturul bilei, care pulsează pe voce
+          const pts = [], N = 96;
+          for (let k = 0; k <= N; k++) {
+            const u = k / N, th = u * Math.PI * 2;
+            const r = rb * (1 + 0.26 * vs((u + side * 0.5) % 1));
+            pts.push([cx + Math.cos(th) * r, cy + Math.sin(th) * r]);
+          }
+          strokePath(pts, true, hue + 10, 2.0, .55);
+          strokePath(pts, true, hue + 10, 7.0, .045);
+        }
+      });
+  }},
   { name: 'inel de blocuri — cerc în repaus, crește doar în afară', rest: 0.50, draw(t) {
       // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
       // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
