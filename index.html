@@ -411,8 +411,8 @@ function milkdropRing(t, { ZOOM, TWIST, DECAY, R0, AMP, W, SEGS = 512, HUE = nul
     k ? dst.x.lineTo(x, y) : dst.x.moveTo(x, y);
   }
   dst.x.closePath();
-  dst.x.lineWidth = W * 7 * dpr;   dst.x.globalAlpha = 0.045; dst.x.stroke();
-  dst.x.lineWidth = W * 2.6 * dpr; dst.x.globalAlpha = 0.11;  dst.x.stroke();
+  dst.x.lineWidth = W * 14 * dpr;  dst.x.globalAlpha = 0.090; dst.x.stroke();  // halo ×2
+  dst.x.lineWidth = W * 5.2 * dpr; dst.x.globalAlpha = 0.22;  dst.x.stroke();
   dst.x.lineWidth = W * dpr;       dst.x.globalAlpha = 0.85;  dst.x.stroke();
   dst.x.globalAlpha = 1;
   fbCur = 1 - fbCur;
@@ -521,7 +521,7 @@ function orbSize(px) {
   orbMipB.width = orbMipB.height = Math.max(1, Math.round(px / ORB.BLOOM_WIDE));
   for (const c of [orbSC, orbMA, orbMB]) { c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'low'; }
 }
-function drawOrbits(t, density = 1) {
+function drawOrbits(t, density = 1, holeFrac = ORB.HOLE_FRAC, ringFrac = ORB.RING_FRAC) {
   const used = Math.max(3, Math.round(orbStrands.length * density));
   const gain = density < 1 ? 0.55 : 1;
   const px = Math.round(R * 2 * dpr);
@@ -534,8 +534,8 @@ function drawOrbits(t, density = 1) {
   bass /= (NB / 3); treble /= (NB / 3);
   const level = levelNow;
 
-  const R0 = px * ORB.RING_FRAC * (1 + ORB.A_RADIUS * level);
-  const holeR = R0 * ORB.HOLE_FRAC, F = ORB.PERSPECTIVE;
+  const R0 = px * ringFrac * (1 + ORB.A_RADIUS * level);
+  const holeR = R0 * holeFrac, F = ORB.PERSPECTIVE;
   const dotNear = ORB.DOT_NEAR * dpr * (1 + ORB.A_SIZE * level);
   const dotFar  = ORB.DOT_FAR  * dpr * (1 + ORB.A_SIZE * level * .5);
   const bright  = 1 + ORB.A_BRIGHT * level;
@@ -651,8 +651,8 @@ const FORMULAS = [
   { name: 'inel de undă — cerc perfect în tăcere, se rotește', rest: 0.66, draw(t) {
       // nu mai folosește unda proprie pentru FORMĂ: în liniște amplitudinea e zero,
       // deci rămâne cerc. Ce continuă în tăcere e rotația, nu deformarea.
-      milkdropRing(t, { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.52, AMP: 0.26,
-                        W: 1.1, SPIN: 0.30, LIVE_ONLY: true });
+      milkdropRing(t, { ZOOM: 1.006, TWIST: 0.004, DECAY: 0.88, R0: 0.42, AMP: 0.21,
+                        W: 1.1, SPIN: 0.30, LIVE_ONLY: true });   // diametru 80%
   }},
   { name: 'oscilogramă mov — albastrul și roșul suprapuse', rest: 0.66, draw(t) {
       splitWave();
@@ -679,7 +679,7 @@ const FORMULAS = [
       // cercul galben care stătea fixat a fost scos; rămân doar barele
       const r0 = R * 0.48, N = 96, WIDTH = 3.4;
       for (let k = 0; k < N; k++) {
-        const u = k / N, th = u * Math.PI * 2 - t * 0.14;
+        const u = k / N, th = u * Math.PI * 2 - t * 0.21;   // rotație +50%
         const en = eAt((k * 7 % N) / N);
         const len = R * (0.022 + 0.087 * en);
         const hue = 32 + t * 5 + en * 40;
@@ -694,8 +694,8 @@ const FORMULAS = [
       // are exact nuanța primului și cusătura dispare.
       const r0 = R * 0.50, M = 150, REST = 0.020;
       for (let k = 0; k < M; k++) {
-        const u = k / M, th = u * Math.PI * 2 + t * 0.10;
-        const en = eAt((u * 2) % 1);
+        const u = k / M, th = u * Math.PI * 2 + t * 0.13;   // rotație +30%
+        const en = eAt((u * 4) % 1);   // patru sferturi care fac același lucru
         const len = R * (REST + 0.115 * en);
         const hue = 250 + 360 * u + t * 6;
         spike(Math.cos(th) * r0, Math.sin(th) * r0,
@@ -703,37 +703,52 @@ const FORMULAS = [
               hue, 3.6, .55 + .4 * en);
       }
   }},
-  { name: 'lanț de fulgere — lumina pleacă doar radial', rest: 0.74, draw(t) {
-      // haloul nu mai e un contur suflat (care se scurgea și tangențial, spre
-      // segmentul vecin), ci un sector de inel exact peste unghiurile arcului.
-      // Între două arce, sectorul întreg — până la periferie — rămâne negru.
-      trailLayer({ DECAY: 0.72, ZOOM: 1.012, TWIST: 0.0025 }, () => {
-        const M = 7, SEG = 20, r0 = R * 0.54;
+  { name: 'lanț de fulgere — lasă valuri de ceață în urmă', rest: 0.80, draw(t) {
+      // Înainte era un halou FIX sub linii: sectorul de inel stătea pe loc și doar
+      // linia vibra deasupra lui. Acum lumina nu mai e desenată ca formă, ci
+      // EMISĂ: în fiecare cadru fiecare arc scapă câțiva pufuleți, pe care stratul
+      // de urmă îi împinge spre exterior. Emisia e inegală de la un arc la altul
+      // (fiecare are propriul ritm), ca să nu iasă un inel uniform.
+      trailLayer({ DECAY: 0.84, ZOOM: 1.022, TWIST: 0.004 }, () => {
+        const M = 7, SEG = 20, r0 = R * 0.46;
         for (let m = 0; m < M; m++) {
           const a0 = (m / M) * Math.PI * 2 + t * 0.20;
           const span = (Math.PI * 2 / M) * 0.80;
           const hue = 195 + m * 6 + t * 12;
-          radialGlow(a0, a0 + span, r0 * 1.02, r0 * 1.26, hue, 0.16 + 0.22 * levelNow);
+          // cât suflă ARCUL ăsta acum: energia lui proprie × un ritm propriu
+          const own = 0.35 + 0.65 * Math.pow(Math.max(0,
+                        Math.sin(t * (0.7 + m * 0.23) + m * 2.1)), 3);
           const pts = [];
           for (let k = 0; k <= SEG; k++) {
             const u = k / SEG, th = a0 + span * u;
             const j = vs((m * SEG + k) / (M * SEG));
-            const r = r0 * (1 + 0.51 * j + 0.02 * Math.sin(t * 3.1 + m * 1.7));  // vibrație ×3
+            const r = r0 * (1 + 0.51 * j + 0.02 * Math.sin(t * 3.1 + m * 1.7));
             pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+            // pufuletele de ceață pleacă de pe linie, acolo unde ea chiar vibrează
+            if (k % 7 === 0) {
+              const a = (0.002 + 0.020 * j) * own * (0.15 + 0.85 * levelNow);
+              if (a > 0.004) {
+                const px = Math.cos(th) * r, py = Math.sin(th) * r;
+                const rad = R * (0.05 + 0.05 * j);
+                const g = CTX.createRadialGradient(px, py, 0, px, py, rad);
+                g.addColorStop(0, `hsla(${hue % 360}, 88%, 64%, ${a})`);
+                g.addColorStop(1, `hsla(${hue % 360}, 88%, 64%, 0)`);
+                CTX.beginPath(); CTX.arc(px, py, rad, 0, Math.PI * 2);
+                CTX.fillStyle = g; CTX.fill();
+              }
+            }
           }
-          strokePath(pts, false, hue, 3.4, .92);
+          strokePath(pts, false, hue, 3.4, .92);   // lumina instantanee a liniei
         }
       });
   }},
-  { name: 'orbite de particule — din film, la jumătate', rest: 2.00, draw(t) {
-      drawOrbits(t, 1);
+  { name: 'orbite rare — gaură mare, blocuri clare', rest: 1.15, draw(t) {
+      // gaura din mijloc de 2,5 ori mai mare, iar inelul strâns spre interiorul
+      // pânzei (RING_FRAC mai mic) ca mărgelele din față să nu mai fie tăiate de
+      // marginea pătratului — de acolo venea senzația de imagine decupată.
+      drawOrbits(t, 0.5, 1.40, 0.22);
   }},
-  { name: 'orbite rare — jumătate din fire, blocuri clare', rest: 2.00, draw(t) {
-      // aceeași mecanică, dar cu jumătate din fire și fără aura groasă: blocurile
-      // se citesc individual, în loc să se topească într-un ghem strălucitor.
-      drawOrbits(t, 0.5);
-  }},
-  { name: 'două bile — ceață suflată din contur spre exterior', rest: 0.71, draw(t) {
+  { name: 'două bile — ceață suflată din contur spre exterior', rest: 0.88, draw(t) {
       // Din film: două bile diametral opuse care se rotesc lent în jurul centrului,
       // iar de pe conturul lor se ridică o ceață care e mereu împinsă spre exterior
       // și răsucită de rotație. Ceața NU e desenată ca dâră: e stratul de urmă, cu
@@ -741,8 +756,10 @@ const FORMULAS = [
       // Fiindcă stratul se compune aditiv sub bile, ceața veche trece peste ele.
       // raportul dintre TWIST și ZOOM decide dacă ceața iese drept sau se
       // răsucește: rotație mare + împingere mică = spirala din film
-      trailLayer({ DECAY: 0.935, ZOOM: 1.010, TWIST: 0.030 }, () => {
-        const orbit = R * 0.68, rb = R * 0.105;   // rază +70%
+      // împingere mare, răsucire mică: ceața pleacă radial față de centrul în
+      // jurul căruia se rotesc, nu în coadă după ele
+      trailLayer({ DECAY: 0.930, ZOOM: 1.022, TWIST: 0.009 }, () => {
+        const orbit = R * 0.52, rb = R * 0.095;   // cât să mai rămână loc de ceață
         const spin = t * 0.45;
         for (const side of [0, 1]) {
           const a = spin + side * Math.PI;
@@ -756,8 +773,9 @@ const FORMULAS = [
           const puff = 0.30 + 0.70 * Math.pow(Math.max(0,
                         Math.sin(t * 1.45 + side * Math.PI * 0.7)), 4);
           const g = CTX.createRadialGradient(cx, cy, rb * 0.2, cx, cy, rb * 2.1);
-          g.addColorStop(0.00, `hsla(${hue}, 88%, 60%, ${(0.040 + 0.075 * levelNow) * puff})`);
-          g.addColorStop(0.45, `hsla(${hue}, 88%, 58%, ${(0.016 + 0.035 * levelNow) * puff})`);
+          // în tăcere nu se degajă nimic: ceața apare doar pe activitate
+          g.addColorStop(0.00, `hsla(${hue}, 88%, 60%, ${(0.006 + 0.13 * levelNow) * puff})`);
+          g.addColorStop(0.45, `hsla(${hue}, 88%, 58%, ${(0.002 + 0.06 * levelNow) * puff})`);
           g.addColorStop(1.00, `hsla(${hue}, 85%, 60%, 0)`);
           CTX.beginPath(); CTX.arc(cx, cy, rb * 2.1, 0, Math.PI * 2);
           CTX.fillStyle = g; CTX.fill();
@@ -788,7 +806,7 @@ const FORMULAS = [
         const u = k / M;
         const th = u * Math.PI * 2 + t * 0.22;
         const amp = vl(u);                                  // zero în tăcere
-        const r = half * (0.50 + 0.17 * amp);
+        const r = half * (0.35 + 0.12 * amp);   // diametru 70%
         const X = half + Math.cos(th) * r, Y = half + Math.sin(th) * r;
         const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
         const size = (4.2 + 1.2 * shimmer + 8.0 * Math.min(1, amp * 1.6)) * dpr;
@@ -942,7 +960,7 @@ hudBtn.addEventListener('click', ev => {
 
 // ─────────────────────────── comenzi pe ecran ─────────────────────────
 let fIdx = 0;                       // pornim pe cea care respectă cel mai bine criteriul
-const FAVS = new Set([3, 4, 7]);    // cele lăudate la ultimul review, marcate cu ★
+const FAVS = new Set([2, 3]);       // cele lăudate la ultimul review, marcate cu ★
 const chips = document.getElementById('chips');
 FORMULAS.forEach((f, i) => {
   const b = document.createElement('button');
