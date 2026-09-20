@@ -9,6 +9,7 @@
 <style>
   :root {
     --ink: #cfd6de; --dim: #7f8894; --line: #1d242d;
+    --hud: 12px;                      /* fontul liniei de jos, referința de scară */
     --pad-b: env(safe-area-inset-bottom, 0px);
     --pad-t: env(safe-area-inset-top, 0px);
   }
@@ -40,7 +41,7 @@
   /* favoritele lui Victor: 5 (spițe pe spectru) și 7 (MilkDrop autentic) */
   .chip.fav::after { content: "★"; font-size: 9px; vertical-align: super; opacity: .75 }
   #bottom { display: flex; flex-direction: column; gap: 8px; align-items: center }
-  #label { color: var(--ink); font-size: 12px; text-align: center; padding: 0 8px;
+  #label { color: var(--ink); font-size: var(--hud); text-align: center; padding: 0 8px;
            text-shadow: 0 1px 6px #000 }
   #mic { padding: 13px 20px; border-radius: 999px; border: 1px solid #2f6b8c;
          background: rgba(16,40,56,.85); color: #bfe6ff; font: 600 15px/1 inherit;
@@ -70,9 +71,9 @@
   #row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
   #mdBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
            background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
-  #mdBtn.on, #walkBtn.on, #hudBtn.on { border-color: #3c7fa6; color: #bfe6ff;
+  #mdBtn.on, #walkBtn.on, #hudBtn.on, #curBtn.on { border-color: #3c7fa6; color: #bfe6ff;
                                         background: rgba(20,44,60,.8) }
-  #walkBtn, #hudBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+  #walkBtn, #hudBtn, #curBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
                       background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
   /* „ascunde barele": rămân doar butoanele, ca animația să aibă tot ecranul */
   body.bare #bars, body.bare #label, body.bare #chips { display: none }
@@ -82,6 +83,13 @@
      de pe #wrap face negrul să dispară peste fundal */
   #md { -webkit-mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%);
         mask-image: radial-gradient(circle, #000 42%, rgba(0,0,0,.55) 62%, transparent 74%) }
+  /* Cursorul macOS, fix în centrul ECRANULUI (nu al pânzei): când halo-ul se
+     plimbă, el rămâne pe loc, ca să se vadă unde va fi mouse-ul în realitate.
+     Vârful e hotspot-ul, deci colțul din stânga-sus al glifei stă chiar pe centru.
+     Mărimea e legată de fontul din linia de jos (--hud), ca proporția să fie reală. */
+  #cursor { position: fixed; left: 50%; top: 50%; z-index: 2; pointer-events: none;
+            width: calc(var(--hud) * 1.55); filter: drop-shadow(0 1px 2px rgba(0,0,0,.65)) }
+  body.nocursor #cursor { display: none }
   /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
   #bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 46px }
   #bars div { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
@@ -120,6 +128,10 @@
 </div>
   </div>
 </div>
+<svg id="cursor" viewBox="0 0 14 21" aria-hidden="true">
+  <path d="M1 1 L1 18.2 L5.2 14.1 L7.9 20 L10.6 18.8 L8 13.1 L13 13.1 Z"
+        fill="#a06bff" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>
+</svg>
 <div id="wrap"><canvas id="c"></canvas><canvas id="md" class="hidden"></canvas></div>
 
 <div id="ui">
@@ -132,6 +144,7 @@
       <button id="mdBtn">MilkDrop</button>
       <button id="walkBtn">plimbare</button>
       <button id="hudBtn">ascunde barele</button>
+      <button id="curBtn">ascunde cursorul</button>
     </div>
     <div id="bars"></div>
   </div>
@@ -949,6 +962,15 @@ function walkOffset(t) {
   return ` translate(${(ax * Math.sin(t * 0.21)).toFixed(1)}px,` +
          `${(ay * Math.sin(t * 0.29 + 1.1)).toFixed(1)}px)`;
 }
+
+const curBtn = document.getElementById('curBtn');
+curBtn.addEventListener('click', ev => {
+  ev.stopPropagation();
+  document.body.classList.toggle('nocursor');
+  const off = document.body.classList.contains('nocursor');
+  curBtn.classList.toggle('on', off);
+  curBtn.textContent = off ? 'arată cursorul' : 'ascunde cursorul';
+});
 
 const hudBtn = document.getElementById('hudBtn');
 hudBtn.addEventListener('click', ev => {
