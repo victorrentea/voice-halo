@@ -683,6 +683,47 @@ const FORMULAS = [
   { name: 'orbite de particule — reconstrucția din film', rest: 1.00, draw(t) {
       drawOrbits(t);
   }},
+  { name: 'inel de blocuri — unda desenată cu mărgele pătrate', rest: 0.50, draw(t) {
+      // Ce aduce filmul nu e mișcarea, ci TEXTURA: lanțuri de mărgele pătrate în
+      // loc de linie continuă. Aici e chiar inelul de undă de la 1, desenat cu
+      // aceleași sprite-uri ca orbitele — pătrat crocant peste un blob moale,
+      // aditiv, cu paleta cyan→violet→magenta care curge pe circumferință.
+      const px = Math.round(R * 2 * dpr);
+      orbSize(px);
+      const half = px / 2, M = 132;
+      orbSC.setTransform(1, 0, 0, 1, 0, 0);
+      orbSC.clearRect(0, 0, px, px);
+      orbSC.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < M; k++) {
+        const u = k / M;
+        const th = u * Math.PI * 2 + t * 0.22;           // sensul acelor de ceas
+        const amp = vs(u);
+        const r = half * (0.50 + 0.17 * amp);
+        const X = half + Math.cos(th) * r, Y = half + Math.sin(th) * r;
+        // mărimea blocului urmează local amplitudinea, ca în film unde mărgelele
+        // din față sunt vizibil mai mari decât cele din spate
+        const size = (4.2 + 8.0 * Math.min(1, amp * 1.6)) * dpr;
+        const hue = (u * 1.0 + t * 0.05) % 1;
+        const spr = orbSprites[Math.min(ORB.STEPS - 1, (hue * ORB.STEPS) | 0)];
+        const gm = size * 2.1;
+        orbSC.globalAlpha = 0.20 + 0.25 * amp;
+        orbSC.drawImage(spr.blob, X - gm / 2, Y - gm / 2, gm, gm);
+        orbSC.globalAlpha = 0.55 + 0.45 * Math.min(1, amp * 1.5);
+        orbSC.drawImage(spr.sq, X - size / 2, Y - size / 2, size, size);
+      }
+      orbSC.globalAlpha = 1;
+      orbMA.clearRect(0, 0, orbMipA.width, orbMipA.height);
+      orbMA.drawImage(orbScene, 0, 0, orbMipA.width, orbMipA.height);
+      orbMB.clearRect(0, 0, orbMipB.width, orbMipB.height);
+      orbMB.drawImage(orbScene, 0, 0, orbMipB.width, orbMipB.height);
+      lctx.save();
+      lctx.translate(-R, -R);
+      lctx.globalCompositeOperation = 'lighter';
+      lctx.globalAlpha = 0.95; lctx.drawImage(orbMipB, 0, 0, R * 2, R * 2);
+      lctx.globalAlpha = 0.40; lctx.drawImage(orbMipA, 0, 0, R * 2, R * 2);
+      lctx.globalAlpha = 1;    lctx.drawImage(orbScene, 0, 0, R * 2, R * 2);
+      lctx.restore();
+  }},
   { name: 'inel dublu contrarotativ — lent, cu ceață', rest: 0.70, draw(t) {
       trailLayer({ DECAY: 0.79, ZOOM: 1.014, TWIST: 0.001 }, () => {
         for (const sgn of [1, -1]) {
