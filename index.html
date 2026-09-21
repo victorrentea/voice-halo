@@ -205,6 +205,7 @@
       <button id="bg">fundal: IDE</button>
       <button id="mdBtn">MilkDrop</button>
       <button id="walkBtn">plimbare</button>
+      <button id="eqBtn">voce: direct</button>
       <button id="hudBtn">ascunde barele</button>
       <button id="curBtn">ascunde cursorul</button>
     </div>
@@ -250,6 +251,83 @@ const wave = new Float32Array(analyser.fftSize);
 const spec = new Uint8Array(analyser.frequencyBinCount);
 let micOn = false, micSource = null;
 
+// ── pregătirea vocii pentru presete ──────────────────────────────────────────
+// Presetele MilkDrop sunt desenate pentru MUZICĂ, iar tu vorbești. Măsurat pe zece
+// înregistrări din corpusul tău, din orele de curs: doar **3,2%** din energia vocii
+// tale stă sub 120 Hz (între 0,5% și 11%), acolo unde o tobă de bas ar pune 30–50%.
+// Bass-ul lui MilkDrop — cel care mișcă majoritatea presetelor — practic nu primește
+// nimic de la tine. În schimb 48% din mișcarea anvelopei tale e în 2–8 Hz, adică
+// SILABELE: ritmul există, doar că e în locul greșit din spectru. Iar nivelul brut
+// sare cu 28 dB de la o înregistrare la alta, deci un câștig fix nu are cum să fie
+// bun de două ori la rând.
+//
+// De aici cele cinci lanțuri. Se schimbă din buton, live, cât vorbești:
+//   direct      — ce iese din microfon, ca reper
+//   normalizat  — compresie tare + câștig: aceeași forță indiferent de cât de
+//                 departe ești de microfon (pe ăsta mor cei 28 dB)
+//   bas         — normalizat + un sub de 68 Hz a cărui amplitudine urmărește
+//                 anvelopa vocii: le dă presetelor toba pe care o așteaptă, pe
+//                 ritmul silabelor tale
+//   spectru     — normalizat + rafturi de ±12 dB jos și sus: întinde banda ta
+//                 îngustă (90% din energie între 145 și 3900 Hz) peste tot spectrul
+//   tot         — spectru + bas, varianta agresivă
+const AUDIO_MODES = ['direct', 'normalizat', 'bas', 'spectru', 'tot'];
+let audioMode = 0;
+const voiceOut = actx.createGain();          // TOT ce aude motorul trece pe aici
+const hp = actx.createBiquadFilter();  hp.type = 'highpass'; hp.frequency.value = 70;
+const tiltLo = actx.createBiquadFilter(); tiltLo.type = 'lowshelf';  tiltLo.frequency.value = 170; tiltLo.gain.value = 12;
+const tiltHi = actx.createBiquadFilter(); tiltHi.type = 'highshelf'; tiltHi.frequency.value = 3500; tiltHi.gain.value = 12;
+const comp = actx.createDynamicsCompressor();
+comp.threshold.value = -45; comp.knee.value = 12; comp.ratio.value = 12;
+comp.attack.value = 0.004; comp.release.value = 0.12;
+const makeup = actx.createGain(); makeup.gain.value = 6;
+// subul: un sinus care nu se aude ca ton, se simte ca lovitură
+const sub = actx.createOscillator(); sub.type = 'sine'; sub.frequency.value = 68;
+const subGain = actx.createGain(); subGain.gain.value = 0;
+sub.connect(subGain); sub.start();
+// urmăritorul de anvelopă citește vocea BRUTĂ, nu ce a făcut compresorul din ea
+const envA = actx.createAnalyser(); envA.fftSize = 512;
+const envBuf = new Float32Array(envA.fftSize);
+
+function wireAudio() {
+  for (const n of [micSource, hp, tiltLo, tiltHi, comp, makeup, subGain]) { try { n && n.disconnect(); } catch (e) {} }
+  if (!micSource) return;
+  micSource.connect(envA);
+  const m = AUDIO_MODES[audioMode];
+  if (m === 'direct') { micSource.connect(voiceOut); }
+  else {
+    micSource.connect(hp);
+    let tail = hp;
+    if (m === 'spectru' || m === 'tot') { tail.connect(tiltLo); tiltLo.connect(tiltHi); tail = tiltHi; }
+    tail.connect(comp); comp.connect(makeup); makeup.connect(voiceOut);
+    if (m === 'bas' || m === 'tot') subGain.connect(voiceOut);
+  }
+  eqBtn.textContent = 'voce: ' + m;
+}
+
+// se apelează din bucla de cadre: ține subul lipit de anvelopa vocii
+let envLevel = 0;
+function driveSub() {
+  const m = AUDIO_MODES[audioMode];
+  if (!micSource || (m !== 'bas' && m !== 'tot')) { subGain.gain.value = 0; return; }
+  envA.getFloatTimeDomainData(envBuf);
+  let s = 0; for (let i = 0; i < envBuf.length; i++) s += envBuf[i] * envBuf[i];
+  const rms = Math.sqrt(s / envBuf.length);
+  // atac rapid, cădere lentă: o silabă lovește, apoi se stinge — ca o tobă
+  envLevel = rms > envLevel ? rms : envLevel * 0.90 + rms * 0.10;
+  const drive = Math.min(1, Math.max(0, (envLevel - 0.004) * 26));
+  subGain.gain.setTargetAtTime(drive * 0.55, actx.currentTime, 0.01);
+}
+
+const eqBtn = document.getElementById('eqBtn');
+eqBtn.addEventListener('click', () => {
+  audioMode = (audioMode + 1) % AUDIO_MODES.length;
+  wireAudio();
+  label.textContent = 'voce: ' + AUDIO_MODES[audioMode];
+  poke();
+});
+addEventListener('keydown', e => { if (e.key === 'a') eqBtn.click(); });
+
 const micBtn = document.getElementById('mic');
 const label  = document.getElementById('label');
 
@@ -262,8 +340,9 @@ async function startMic() {
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
     });
     micSource = actx.createMediaStreamSource(stream);
-    micSource.connect(analyser);
-    if (viz) viz.connectAudio(micSource);
+    wireAudio();
+    voiceOut.connect(analyser);        // și barele arată vocea PREGĂTITĂ, nu cea brută
+    if (viz) viz.connectAudio(voiceOut);
     micOn = true;
     micBtn.className = 'live';
     micBtn.textContent = '🎙 microfon pornit';
@@ -1293,7 +1372,7 @@ async function mdEnable(bootOnly) {
     viz = (butterchurn.default || butterchurn).createVisualizer(actx, mdCanvas,
             { width: mdCanvas.width, height: mdCanvas.height, pixelRatio: 1 });
     viz.setRendererSize(mdCanvas.width, mdCanvas.height);
-    if (micSource) viz.connectAudio(micSource);
+    if (micSource) viz.connectAudio(voiceOut);
   }
   if (!bootOnly) mdLoad(mdIdx);
   return true;
@@ -1353,14 +1432,25 @@ mdBtn.addEventListener('click', async ev => {
 const SWIPE_MIN = 55;            // sub atât e o atingere, nu un gest
 const SWIPE_STEP = 0.22;         // încă un preset la fiecare 22% din înălțime
 const SWIPE_MAX = 3;
-let swipeX = null, swipeY = null;
+let swipeX = null, swipeY = null, swipeFingers = 1;
 addEventListener('touchstart', e => {
   swipeX = e.touches[0].clientX; swipeY = e.touches[0].clientY;
+  swipeFingers = e.touches.length;
 }, { passive: true });
 addEventListener('touchend', e => {
-  if (swipeX === null || !mdOn) return;
-  const dx = e.changedTouches[0].clientX - swipeX;
-  const dy = e.changedTouches[0].clientY - swipeY;
+  if (swipeX === null) return;
+  const gx = e.changedTouches[0].clientX - swipeX, gy = e.changedTouches[0].clientY - swipeY;
+  // DOUĂ degete pe verticală = lanțul de voce, nu presetul. Gestul cu un deget e
+  // deja luat de răsfoire, iar pregătirea vocii trebuie încercată fără să pierzi
+  // efectul pe care tocmai îl asculți — altfel compari două lucruri deodată.
+  if (swipeFingers >= 2 && Math.abs(gy) > SWIPE_MIN && Math.abs(gy) > Math.abs(gx) * 1.6) {
+    audioMode = (audioMode + (gy < 0 ? 1 : AUDIO_MODES.length - 1)) % AUDIO_MODES.length;
+    wireAudio();
+    label.textContent = 'voce: ' + AUDIO_MODES[audioMode];
+    poke(); swipeX = null; return;
+  }
+  if (!mdOn) return;
+  const dx = gx, dy = gy;
   if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.6) {
     mdLoad(mdIdx + (dx < 0 ? 1 : -1));
   } else if (Math.abs(dy) > SWIPE_MIN && Math.abs(dy) > Math.abs(dx) * 1.6) {
@@ -1444,7 +1534,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '17:56:45 8d56d13';
+const BUILD = '19:33:17 bd41a63';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
@@ -1680,6 +1770,7 @@ function frame(now) {
   // cursorul merge cu efectul: vârful lui trebuie să stea mereu în centrul lui,
   // altfel plimbarea le desparte și nu mai vezi unde ar fi mouse-ul în realitate
   walkStep(t);
+  driveSub();                         // subul urmează anvelopa vocii, cadru cu cadru
   if (!EMBED) {                       // în embed le scrie halo.audio()
     analyser.getFloatTimeDomainData(wave);
     analyser.getByteFrequencyData(spec);
