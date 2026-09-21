@@ -1444,19 +1444,27 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:42:12 b40f4ef';
+const BUILD = '17:56:45 8d56d13';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
+// Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
+// `stamp.sh` le scrie pe amândouă odată, dar pot fi comise separat — s-a și
+// întâmplat — și atunci pagina nu mai avea cum să ajungă vreodată la versiunea
+// „bună": se reîncărca la fiecare 15 secunde, la nesfârșit, adică exact cât să te
+// arunce înapoi la primul efect imediat ce începeai să vorbești. Comparată cu ea
+// însăși, amprenta nu are cu ce să se certe.
+let verSeen = null;
 async function checkVersion() {
   try {
     const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
     if (!r.ok) return;
     const live = (await r.text()).trim();
-    if (live && live !== BUILD) {
-      verEl.classList.add('fresh');
-      verEl.textContent = 'versiune nouă — se reîncarcă…';
-      setTimeout(() => location.reload(), 600);
-    }
+    if (!live) return;
+    if (verSeen === null) { verSeen = live; return; }   // primul răspuns e reperul
+    if (live === verSeen) return;
+    verEl.classList.add('fresh');
+    verEl.textContent = 'versiune nouă — se reîncarcă…';
+    setTimeout(() => location.reload(), 600);
   } catch (e) { /* offline: rămânem pe ce avem */ }
 }
 if (!EMBED) {                  // în aplicație pagina e livrată cu ea, nu se actualizează singură
