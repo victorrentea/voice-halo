@@ -1056,6 +1056,9 @@ const FORMULAS = [
   // să arate exact cum l-ai văzut: la răsfoire, de la `haloFloodFrom` încolo pagina
   // pune singură stingerea radială.
   { name: '★ Sigil', desc: 'MilkDrop 213 — martin, shifter (armorial bearings of robotopia)', preset: 'martin - shifter - armorial bearings of robotopia', fade: true, scale: 1 },
+  { name: '★ Veil', desc: 'MilkDrop 173 — nil, Vortex of Vortices', preset: 'nil - Vortex of Vortices', fade: true, scale: 1 },
+  { name: '★ Magma', desc: 'MilkDrop 179 — Pithlit, Deep Vent', preset: 'Pithlit - Deep Vent', fade: true, scale: 1 },
+  { name: '★ Nebula', desc: 'MilkDrop 233 — beta106i, Trickshot', preset: 'beta106i - Trickshot', fade: true, scale: 1 },
 ];
 
 
@@ -1428,7 +1431,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:19:41 e12d356';
+const BUILD = '16:25:00 0635338';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
