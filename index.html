@@ -1045,6 +1045,17 @@ const FORMULAS = [
   // tocmai fiindcă sunt aici.
   { name: '★ Gyro', desc: 'MilkDrop 14 — beta106i, GN@tack.ed', preset: 'beta106i - GN@tack.ed', scale: 1 },
   { name: '★ Smoke', desc: 'MilkDrop 58 — bdrv et.AL Aderrasi, Blender rmx', preset: 'bdrv et.AL Aderrasi - Blender rmx', scale: 1 },
+  { name: '★ Whirl', desc: 'MilkDrop 30 — Rovastar, Jester\'s Swirl', preset: 'Rovastar - Jester\'s Swirl', scale: 1 },
+  { name: '★ Ember', desc: 'MilkDrop 44 — Pithlit, Guilty', preset: 'Pithlit - Guilty', scale: 1 },
+  { name: '★ Dusk', desc: 'MilkDrop 57 — Ootje, Battle of the sexes', preset: 'Ootje - Battle of the sexes', scale: 1 },
+  // „Eclipse" era deja luat de un efect propriu, deci coroana asta se numește Corona
+  { name: '★ Corona', desc: 'MilkDrop 92 — Stahlregen, Solar Flare (Eclipse)', preset: 'Stahlregen - Solar Flare (Eclipse)', scale: 1 },
+  // același preset pe care l-ai vrut nativ în projectM, aici cu motorul lui
+  { name: '★ Bipolar', desc: 'MilkDrop 109 — bipolar 2', preset: 'bipolar 2', scale: 1 },
+  // Primul ales din coada listei, dintre cele care umplu ecranul — deci `fade`, ca
+  // să arate exact cum l-ai văzut: la răsfoire, de la `haloFloodFrom` încolo pagina
+  // pune singură stingerea radială.
+  { name: '★ Sigil', desc: 'MilkDrop 213 — martin, shifter (armorial bearings of robotopia)', preset: 'martin - shifter - armorial bearings of robotopia', fade: true, scale: 1 },
 ];
 
 
@@ -1417,7 +1428,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '15:41:36 402ffde';
+const BUILD = '16:18:35 e82fb38';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {

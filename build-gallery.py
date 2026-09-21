@@ -88,8 +88,13 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
             # toată fereastra, altfel cardul arată mult mai sărac decât efectul.
             clip = ({"x": 0, "y": 0, "width": 760, "height": 760} if m["scene"]
                     else {"x": 80, "y": 80, "width": 600, "height": 600})
+            # Un efect cu `fade` desenează pe o pânză cu mască radială, iar o captură
+            # de-a lui poate depăși cu mult timeout-ul implicit de 30 s al lui
+            # Playwright pe o mașină încărcată — ★ Sigil pică acolo de fiecare dată.
+            # Capturile sunt oricum secvențiale, deci un timeout mare nu costă nimic
+            # la efectele rapide: se așteaptă exact cât durează.
             for k in range(int(seconds * fps)):
-                page.screenshot(path=f"{FRAMES}/f{k:04d}.png", clip=clip)
+                page.screenshot(path=f"{FRAMES}/f{k:04d}.png", clip=clip, timeout=180_000)
 
             mp4 = f"{OUT}/{i+1:02d}.mp4"
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", str(fps),
@@ -98,7 +103,7 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
                             "-pix_fmt", "yuv420p", "-movflags", "+faststart", mp4],
                            check=True)
             # posterul: primul cadru servit cât timp se încarcă videoul
-            page.screenshot(path=f"{OUT}/{i+1:02d}.png", clip=clip)
+            page.screenshot(path=f"{OUT}/{i+1:02d}.png", clip=clip, timeout=180_000)
 
             mark = "★" if name.startswith("★") else "•" if name.startswith("•") else ""
             items.append({"n": i + 1, "nume": bare, "mark": mark,
