@@ -1248,7 +1248,11 @@ async function mdEnable(bootOnly) {
     // de răsfoit — altele decât cele 103 pe care le-ai parcurs deja — și presetele
     // fixate în FORMULAS, scoase din pachetele oficiale. Așa nu mai descărcăm 1,5 MB
     // de presete oficiale pentru cele nouă pe care le folosim din ele.
-    try { await loadScript('halo-presets.js'); }
+    // Amprenta versiunii în URL, altfel pachetul rămâne în cache-ul telefonului până
+    // la 10 minute după ce pagina s-a reîncărcat deja: ajungi cu index.html nou și
+    // presete vechi, adică o listă în care numărul 58 arată alt efect decât cel pe
+    // care îl vede pagina. E felul în care ți s-au „shiftat" efectele alese.
+    try { await loadScript('halo-presets.js?v=' + encodeURIComponent(BUILD)); }
     catch (e) { post({ event: 'warn', what: 'halo-presets.js lipsește: ' + e.message }); }
 
     if (window.haloPresets) {
@@ -1431,7 +1435,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:25:00 0635338';
+const BUILD = '16:36:32 3aac28e';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
