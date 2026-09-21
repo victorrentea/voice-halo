@@ -1260,8 +1260,15 @@ async function mdEnable(bootOnly) {
 function mdLoad(i) {
   if (!mdNames.length) return;
   mdIdx = (i + mdNames.length) % mdNames.length;
+  // De la `haloFloodFrom` încolo sunt presetele care umplu tot ecranul cu vopsea.
+  // Le-ai vrut în listă, dar ultimele și îmblânzite, deci primesc aceeași stingere
+  // radială ca Tunnel: nu se taie nimic, doar se sting spre margini.
+  const flood = window.haloFloodFrom != null && mdIdx >= window.haloFloodFrom;
+  mdCanvas.classList.toggle('fade', flood);
+  keyCv.classList.toggle('fade', flood);
   viz.loadPreset(mdPresets[mdNames[mdIdx]], 1.2);
-  label.textContent = `MilkDrop ${mdIdx + 1}/${mdNames.length} — ${mdNames[mdIdx]}`;
+  label.textContent = `MilkDrop ${mdIdx + 1}/${mdNames.length}${flood ? ' ▒' : ''}`
+                    + ` — ${mdNames[mdIdx]}`;
   poke();
 }
 
@@ -1375,7 +1382,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '06:15:54 d60261c';
+const BUILD = '07:19:24 0649077';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {

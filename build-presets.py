@@ -31,6 +31,8 @@ Surse (toate publice, toate verificate că se încarcă în butterchurn 2.6.7):
 import argparse, functools, hashlib, http.server, json, os, re, shutil, socketserver
 import subprocess, sys, threading, time, urllib.request, zipfile
 
+import rank
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.environ.get("HALO_PRESETS_CACHE", "/tmp/voice-halo-presets")
 OUT = os.path.join(ROOT, "halo-presets.js")
@@ -203,6 +205,11 @@ def candidates(pool: int) -> list[dict]:
         out.append(r)
         if len(out) >= pool:
             break
+    # Presetele din FORMULAS se măsoară și ele, cu aceeași sondă: ele sunt etalonul.
+    official = node_packs(OFFICIAL_BASE + OFFICIAL_NEW)
+    refs = [{"name": label, "src": "reference", "pre": 0.0, "p": official[pr]}
+            for label, pr in formulas_entries() if pr in official]
+
     # La coadă, ca indicii celor deja măsurați să nu se miște între rulări.
     for r in gallery_candidates():
         sig = signature(r["p"])
@@ -211,7 +218,10 @@ def candidates(pool: int) -> list[dict]:
         seen_sig.add(sig)
         r["i"] = len(out)
         out.append(r)
-    print(f"  {len(out)} rămân după dublurile pe conținut → se randează")
+    for r in refs:                       # etaloanele, ultimele: fără dedup, fără prag
+        r["i"] = len(out)
+        out.append(r)
+    print(f"  {len(out)} rămân după dublurile pe conținut ({len(refs)} etaloane) → se randează")
     return out
 
 
@@ -378,37 +388,27 @@ def measure(cands: list[dict], reuse: bool) -> list[dict]:
 
 # ── nota finală, din ce a ieșit pe pânză ─────────────────────────────────────
 
-def score(m: dict) -> tuple[float, str]:
-    """Nota + motivul respingerii. Ordinea din pagină e criteriul lui Victor:
-    întâi cele care țin mișcarea într-o bandă și lasă centrul liber."""
-    if not m or m.get("err"):
-        return -99, (m or {}).get("err", "fără măsurători")[:60]
-    a, b, d = m["a"], m["b"], m["d"]
-    mean = (a["mean"] + b["mean"] + d["mean"]) / 3
-    ring = (a["ring"] + b["ring"] + d["ring"]) / 3
-    ctr = (a["center"] + b["center"] + d["center"]) / 3
-    ink = (b["ink"] + d["ink"]) / 2
-    # mișcare: cât se schimbă imaginea între capturi (celule de 25×25 px)
-    move = max(sum(abs(x - y) for x, y in zip(a["grid"], b["grid"])) / len(a["grid"]),
-               sum(abs(x - y) for x, y in zip(b["grid"], d["grid"])) / len(b["grid"]))
-    if mean < 0.012:            return -50, f"negru ({mean:.3f})"
-    if move < 0.006:            return -40, f"înghețat ({move:.4f})"
-    if ink > 0.88 or mean > 0.5: return -30, f"umple cadrul ({ink:.2f}/{mean:.2f})"
-    # centrul liber: inelul aprins, mijlocul stins
-    free = (ring - ctr) / max(ring, 0.02)
-    return (free * 2.2                       # criteriul de ordonare al paginii
-            + min(ring, 0.35) * 2.0          # dar să se și vadă ceva în bandă
-            + min(move, 0.06) * 6.0          # și să fie viu
-            - max(0, ink - 0.55) * 3.0), ""  # fără vopsea pe tot ecranul
+def formulas_entries() -> list[tuple[str, str]]:
+    """(eticheta din pagină, numele presetului) pentru efectele fixate în FORMULAS.
+    Eticheta ține semnul — ★/• = aprobat de tine, − = respins — și exact asta e
+    calibrarea notei: candidații se compară cu ce ai ales tu, nu cu o idee a mea."""
+    page = open(os.path.join(ROOT, "index.html")).read()
+    out = []
+    for line in page.splitlines():
+        if "preset:" not in line:
+            continue
+        nm = re.search(r"name:\s*'((?:[^'\\]|\\.)*)'", line)
+        pr = re.search(r"preset:\s*'((?:[^'\\]|\\.)*)'", line)
+        if nm and pr:
+            out.append((nm.group(1), pr.group(1)))
+    return out
 
 
 def pinned_presets() -> dict:
     """Presetele fixate în FORMULAS (index.html) — singurele de care mai avem
     nevoie din pachetele oficiale. Se citesc din pagină, ca să nu rămână în urmă
     când adaugi sau scoți un efect."""
-    page = open(os.path.join(ROOT, "index.html")).read()
-    names = re.findall(r"preset:\s*'((?:[^'\\]|\\.)*)'", page)
-    names = [n.replace("\\'", "'") for n in dict.fromkeys(names)]
+    names = list(dict.fromkeys(pr for _, pr in formulas_entries()))
     official = node_packs(OFFICIAL_BASE + OFFICIAL_NEW)
     out, missing = {}, []
     for n in names:
@@ -418,13 +418,33 @@ def pinned_presets() -> dict:
     return out
 
 
-def write_pack(rows: list[dict], cands: list[dict], keep: int) -> None:
+def write_pack(rows: list[dict], cands: list[dict], keep: int, keep_flood: int) -> None:
     by_i = {c["i"]: c for c in cands}
-    graded = []
+
+    refs, graded, rejected = {}, [], {}
     for r in rows:
-        s, why = score(r.get("m"))
-        graded.append({**r, "score": s, "why": why})
-    ok = sorted([g for g in graded if not g["why"]], key=lambda g: -g["score"])[:keep]
+        f = rank.features(r.get("m"))
+        src = by_i.get(r["i"], {}).get("src", r.get("src"))
+        if f is None:
+            rejected["nu s-a încărcat"] = rejected.get("nu s-a încărcat", 0) + 1
+            continue
+        if src == "reference":
+            refs[r["name"]] = f
+            continue
+        why = rank.reject(f)
+        if why:
+            k = why.split(" ")[0]
+            rejected[k] = rejected.get(k, 0) + 1
+            continue
+        graded.append({"i": r["i"], "name": r["name"], "src": src, "f": f,
+                       "flood": rank.floods(f)})
+    target, anti = rank.profile(refs)
+    for g in graded:
+        g["score"] = rank.grade(g["f"], target, anti)
+
+    subtle = sorted([g for g in graded if not g["flood"]], key=lambda g: -g["score"])[:keep]
+    flood = sorted([g for g in graded if g["flood"]], key=lambda g: -g["score"])[:keep_flood]
+    ok = subtle + flood          # cele care umplu ecranul: în listă, dar la coadă
 
     pins = pinned_presets()
     everything = {g["name"]: by_i[g["i"]]["p"] for g in ok}
@@ -437,32 +457,44 @@ def write_pack(rows: list[dict], cands: list[dict], keep: int) -> None:
         "// `haloBrowse` = presetele prin care treci cu degetul în modul MilkDrop:\n"
         "// toate NOI față de cele 103 din pachetele oficiale base+extra, pe care\n"
         "// le-ai răsfoit deja o dată. Ordinea e măsurată, nu ghicită: fiecare a fost\n"
-        "// randat cu butterchurn și notat după cât lasă centrul liber.\n"
+        "// randat cu butterchurn și notat după cât de aproape e de presetele pe care\n"
+        "// le-ai aprobat deja în FORMULAS. Întâi cele subtile, la coadă cele care\n"
+        "// umplu tot ecranul — sunt în listă, dar ultimele.\n"
         "// `haloPresets` mai conține, în plus, presetele fixate în FORMULAS — scoase\n"
-        "// din pachetele oficiale, ca pagina să nu mai aducă 1,5 MB pentru nouă presete.\n"
+        "// din pachetele oficiale, ca pagina să nu mai aducă 1,5 MB pentru zece presete.\n"
         "//\n"
-        "// Surse: ansorre/tens-of-thousands-milkdrop-presets-for-butterchurn și\n"
-        "// butterchurn-presets@2.4.7 (packs Extra2 + MD1, MIT) — presete MilkDrop\n"
-        "// scrise de comunitate, redistribuite ca în projectM.\n"
+        "// Surse: ansorre/tens-of-thousands-milkdrop-presets-for-butterchurn,\n"
+        "// butterchurn-presets@2.4.7 (packs Extra2 + MD1, MIT) și galeria proprie\n"
+        "// de .milk din ~/workspace/milkdrop-gallery.\n"
         f"window.haloPresets = {{\n{body}\n}};\n"
-        f"window.haloBrowse = {json.dumps([g['name'] for g in ok], ensure_ascii=False)};\n")
+        f"window.haloBrowse = {json.dumps([g['name'] for g in ok], ensure_ascii=False)};\n"
+        f"window.haloFloodFrom = {len(subtle)};   // de aici încolo umplu tot ecranul\n")
 
-    rej = {}
-    for g in graded:
-        if g["why"]:
-            rej[g["why"].split(" ")[0]] = rej.get(g["why"].split(" ")[0], 0) + 1
     kb = os.path.getsize(OUT) // 1024
-    print(f"\n{len(ok)} presete de răsfoit + {len(pins)} fixate → halo-presets.js ({kb} KB)")
-    print("respinse la randare: " + ", ".join(f"{k} {v}" for k, v in sorted(rej.items())))
+    print("\netalonul, măsurat pe presetele tale din FORMULAS:")
+    for n in sorted(refs):
+        f = refs[n]
+        print(f"  {n:<16} " + "  ".join(f"{k}={f[k]:6.3f}" for k in rank.FEATURES))
+    print("  ținta        " + "  ".join(f"{k}={target[k]:6.3f}" for k in rank.FEATURES))
+    if anti:
+        print("  anti-ținta   " + "  ".join(f"{k}={anti[k]:6.3f}" for k in rank.FEATURES))
+    print(f"\n{len(subtle)} subtile + {len(flood)} care umplu ecranul + {len(pins)} fixate"
+          f" → halo-presets.js ({kb} KB)")
+    print("respinse: " + (", ".join(f"{k} {v}" for k, v in sorted(rejected.items())) or "niciunul"))
     print("\nprimele 15:")
-    for g in ok[:15]:
-        print(f"  {g['score']:5.2f}  {g['name'][:60]}")
+    for g in subtle[:15]:
+        print(f"  {g['score']:6.2f}  {g['name'][:60]}")
+    print("primele 5 dintre cele care umplu ecranul:")
+    for g in flood[:5]:
+        print(f"  {g['score']:6.2f}  {g['name'][:60]}")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--pool", type=int, default=760, help="câți candidați se randează")
-    ap.add_argument("--keep", type=int, default=160, help="câte presete intră în pachet")
+    ap.add_argument("--keep", type=int, default=160, help="câte presete subtile intră")
+    ap.add_argument("--keep-flood", type=int, default=90,
+                    help="câte dintre cele care umplu ecranul intră, la coada listei")
     ap.add_argument("--reuse", action="store_true", help="refolosește măsurătorile din cache")
     a = ap.parse_args()
 
@@ -472,7 +504,7 @@ def main() -> None:
     cands = candidates(a.pool)
     print("randare (Chromium headless, același semnal audio pentru toate):")
     rows = measure(cands, a.reuse)
-    write_pack(rows, cands, a.keep)
+    write_pack(rows, cands, a.keep, a.keep_flood)
 
 
 if __name__ == "__main__":
