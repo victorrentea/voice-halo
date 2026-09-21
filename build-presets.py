@@ -52,7 +52,13 @@ OFFICIAL_BASE = ["butterchurnPresets", "butterchurnPresetsExtra"]
 # pachetele oficiale în plus, din care se pot alege presete noi
 OFFICIAL_NEW = ["butterchurnPresetsExtra2", "butterchurnPresetsMD1"]
 
-MS = 2600          # cât rulează fiecare preset înainte de măsurători (3 capturi)
+# Cât rulează un preset înainte să fie măsurat. 2,6 s e o TRIERE: ajunge ca să
+# vezi ce e negru sau înghețat, dar NU ca să judeci un preset care își construiește
+# imaginea din feedback de cadru — la 2,6 s, „★ Sparks" (ales de tine) se măsoară
+# aproape stins. De aia alegerea finală se face la 9 s, pe lista scurtă rămasă după
+# triere. `build-gallery.py` folosește 11 s din exact același motiv.
+TRIAGE_MS = 2600
+FINAL_MS = 9000
 SHARDS = 5         # câte Chromium-uri în paralel
 
 
@@ -303,6 +309,10 @@ import json, os, sys, functools, http.server, socketserver, threading
 from playwright.sync_api import sync_playwright
 ROOT, lo, hi, MS = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])
 items = [x for x in json.load(open(f'{ROOT}/index.json')) if lo <= x['i'] < hi]
+todo = f'{ROOT}/todo_{MS}.json'
+if os.path.exists(todo):
+    keep = set(json.load(open(todo)))
+    items = [x for x in items if x['i'] in keep]
 handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
 class Quiet(socketserver.TCPServer):
     allow_reuse_address = True
@@ -325,10 +335,10 @@ with sync_playwright() as pw:
     # care moare pe la minutul 25 nu mai aruncă tot.
     seen = set()
     for f in sorted(os.listdir(ROOT)):
-        if f.endswith('.jsonl'):
+        if f.startswith(f'metrics_{MS}_') and f.endswith('.jsonl'):
             for line in open(f'{ROOT}/{f}'):
                 seen.add(json.loads(line)['i'])
-    log = open(f'{ROOT}/metrics_{lo}.jsonl', 'a')
+    log = open(f'{ROOT}/metrics_{MS}_{lo}.jsonl', 'a')
     for k, it in enumerate(items):
         if it['i'] in seen: continue
         try:
@@ -349,9 +359,9 @@ with sync_playwright() as pw:
 """
 
 
-def measure(cands: list[dict], reuse: bool) -> list[dict]:
+def measure(cands: list[dict], reuse: bool, ms: int, only: set | None = None) -> list[dict]:
     lab = f"{CACHE}/lab"
-    done = f"{lab}/metrics.json"
+    done = f"{lab}/metrics-{ms}.json"
     if reuse and os.path.exists(done):
         print("  (refolosesc măsurătorile din cache)")
         return json.load(open(done))
@@ -364,11 +374,16 @@ def measure(cands: list[dict], reuse: bool) -> list[dict]:
         json.dump(c["p"], open(f"{lab}/presets/{c['i']:04d}.json", "w"))
     json.dump([{k: c[k] for k in ("i", "name", "src", "pre")} for c in cands],
               open(f"{lab}/index.json", "w"))
+    if only is None:
+        if os.path.exists(f"{lab}/todo_{ms}.json"):
+            os.remove(f"{lab}/todo_{ms}.json")
+    else:
+        json.dump(sorted(only), open(f"{lab}/todo_{ms}.json", "w"))
 
     step = -(-len(cands) // SHARDS)
     t0 = time.time()
     procs = [subprocess.Popen([sys.executable, f"{lab}/shard.py", lab,
-                               str(lo), str(lo + step), str(MS)])
+                               str(lo), str(lo + step), str(ms)])
              for lo in range(0, len(cands), step)]
     for p in procs:
         p.wait()
@@ -376,7 +391,7 @@ def measure(cands: list[dict], reuse: bool) -> list[dict]:
     # au fost împărțite shard-urile la rulările anterioare.
     rows = {}
     for f in sorted(os.listdir(lab)):
-        if f.endswith(".jsonl"):
+        if f.startswith(f"metrics_{ms}_") and f.endswith(".jsonl"):
             for line in open(f"{lab}/{f}"):
                 r = json.loads(line)
                 rows[r["i"]] = r
@@ -495,6 +510,9 @@ def main() -> None:
     ap.add_argument("--keep", type=int, default=160, help="câte presete subtile intră")
     ap.add_argument("--keep-flood", type=int, default=90,
                     help="câte dintre cele care umplu ecranul intră, la coada listei")
+    ap.add_argument("--settle", type=int, default=FINAL_MS,
+                    help=f"cât rulează fiecare preset înainte de măsurători (ms). "
+                         f"{TRIAGE_MS} = triere rapidă, {FINAL_MS} = alegerea finală")
     ap.add_argument("--reuse", action="store_true", help="refolosește măsurătorile din cache")
     a = ap.parse_args()
 
@@ -502,8 +520,11 @@ def main() -> None:
     download()
     print("candidați:")
     cands = candidates(a.pool)
-    print("randare (Chromium headless, același semnal audio pentru toate):")
-    rows = measure(cands, a.reuse)
+    print(f"randare ({a.settle / 1000:g} s fiecare, același semnal audio pentru toate):")
+    # Nimeni nu e exclus pe baza trierii scurte: „★ Sparks", ales de tine, se
+    # măsoară aproape stins la 2,6 s fiindcă își construiește imaginea din feedback.
+    # Un filtru pe trierea rapidă ar fi tăiat exact soiul de preset care îți place.
+    rows = measure(cands, a.reuse, a.settle)
     write_pack(rows, cands, a.keep, a.keep_flood)
 
 

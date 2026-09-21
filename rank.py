@@ -65,7 +65,15 @@ def floods(f: dict) -> bool:
 
 
 def centroid(rows: list[dict]) -> dict:
-    return {k: sum(r[k] for r in rows) / len(rows) for k in FEATURES}
+    """Mediana, nu media: Snowflake are `free` = −3,5 și singur ar trage ținta
+    în partea cealaltă a criteriului. O referință ciudată nu trebuie să mute
+    etalonul, doar să nu-l contrazică."""
+    out = {}
+    for k in FEATURES:
+        v = sorted(r[k] for r in rows)
+        n = len(v)
+        out[k] = v[n // 2] if n % 2 else (v[n // 2 - 1] + v[n // 2]) / 2
+    return out
 
 
 def distance(f: dict, c: dict) -> float:
