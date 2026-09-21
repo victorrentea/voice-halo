@@ -1146,6 +1146,8 @@ function drawWater(t) {
 // pe date mobile. Se păstrează doar presetele cu undă CIRCULARĂ (wave_mode 0 sau 1)
 // și cele „numai linii" — restul umplu cadrul cu fundal colorat, adică exact ce nu
 // vrem peste o aplicație.
+// Ce se răsfoiește sunt presetele din `halo-presets.js`: alese de ./build-presets.py
+// din alte colecții de pe net, niciunul dintre cele 103 pe care le-ai văzut deja.
 let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0, pinned = null;
 const mdCanvas = document.getElementById('md');
 const mdBtn = document.getElementById('mdBtn');
@@ -1207,25 +1209,41 @@ function unpin() {
 async function mdEnable(bootOnly) {
   if (!mdPresets) {
     label.textContent = 'se încarcă presetele MilkDrop…';
-    // În embed motorul e lângă pagină (`?md=../milkdrop/`), altfel de pe unpkg.
+    // În embed motorul e lângă pagină (`?md=<folder>/`), altfel de pe unpkg.
     const md = EMBED_PARAMS.get('md');
-    const src = md
-      ? [md + 'butterchurn.min.js', md + 'butterchurnPresets.min.js', md + 'butterchurnPresetsExtra.min.js']
-      : ['https://unpkg.com/butterchurn@2.6.7/lib/butterchurn.min.js',
-         'https://unpkg.com/butterchurn-presets@2.4.7/lib/butterchurnPresets.min.js',
-         'https://unpkg.com/butterchurn-presets@2.4.7/lib/butterchurnPresetsExtra.min.js'];
     try {
-      for (const s of src) await loadScript(s);
+      await loadScript(md ? md + 'butterchurn.min.js'
+                          : 'https://unpkg.com/butterchurn@2.6.7/lib/butterchurn.min.js');
     } catch (e) {
       label.textContent = 'nu am putut încărca MilkDrop (fără net?)';
       post({ event: 'error', what: 'milkdrop engine did not load: ' + e.message });
       return false;
     }
-    mdPresets = Object.assign({}, butterchurnPresets.getPresets(),
-      (window.butterchurnPresetsExtra || { getPresets: () => ({}) }).getPresets());
-    mdNames = Object.keys(mdPresets)
-      .filter(n => (mdPresets[n].baseVals.wave_mode | 0) <= 1)
-      .sort((a, b) => cleanliness(mdPresets[b]) - cleanliness(mdPresets[a]));
+    // `halo-presets.js` (scris de ./build-presets.py) aduce DOUĂ lucruri: presetele
+    // de răsfoit — altele decât cele 103 pe care le-ai parcurs deja — și presetele
+    // fixate în FORMULAS, scoase din pachetele oficiale. Așa nu mai descărcăm 1,5 MB
+    // de presete oficiale pentru cele nouă pe care le folosim din ele.
+    try { await loadScript('halo-presets.js'); }
+    catch (e) { post({ event: 'warn', what: 'halo-presets.js lipsește: ' + e.message }); }
+
+    if (window.haloPresets) {
+      mdPresets = window.haloPresets;
+      // `haloBrowse` = doar presetele de răsfoit; `haloPresets` le mai conține și
+      // pe cele fixate în FORMULAS, care nu au ce căuta în listă
+      mdNames = window.haloBrowse || Object.keys(mdPresets);
+    } else {
+      // Plasă de siguranță: dacă pachetul lipsește (o copie veche vendorizată în
+      // aplicație), modul MilkDrop merge ca înainte, pe pachetele oficiale.
+      const pk = 'https://unpkg.com/butterchurn-presets@2.4.7/lib/';
+      for (const f of ['butterchurnPresets.min.js', 'butterchurnPresetsExtra.min.js']) {
+        try { await loadScript(md ? md + f : pk + f); } catch (e) { /* mergem cu ce avem */ }
+      }
+      const pack = n => (window[n] || { getPresets: () => ({}) }).getPresets();
+      mdPresets = Object.assign({}, pack('butterchurnPresets'), pack('butterchurnPresetsExtra'));
+      mdNames = Object.keys(mdPresets)
+        .filter(n => (mdPresets[n].baseVals.wave_mode | 0) <= 1)
+        .sort((a, b) => cleanliness(mdPresets[b]) - cleanliness(mdPresets[a]));
+    }
     // vizualizatorul trebuie creat DUPĂ ce pânza și-a luat dimensiunea finală:
     // altfel rămâne cu viewport-ul vechi și presetul se desenează la altă scară,
     // înghesuit într-un colț. De aceea layout() rulează înainte, cu mdOn deja pus.
@@ -1357,7 +1375,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '19:57:00 22cd62c';
+const BUILD = '06:15:54 d60261c';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {

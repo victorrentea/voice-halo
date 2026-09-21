@@ -30,6 +30,31 @@ mișcarea într-o bandă îngustă, ca să poți suprapune ceva discret în mijl
 Ultimele două (`spiro cu coarde`, `vortex`) traversează sau umplu centrul — sunt
 la coadă tocmai fiindcă încalcă criteriul.
 
+## Presetele din butonul MilkDrop
+
+Butonul răsfoiește presete pe care **nu** le-ai mai văzut. Cele 103 „curate" din
+pachetele oficiale ale lui butterchurn (base + extra, filtrate pe undă circulară)
+au fost deja parcurse o dată și ce a rămas bun din ele e fixat în listă ca efect
+cu numele lui — deci la răsfoire nu mai apar. În locul lor vine `halo-presets.js`,
+scris de `./build-presets.py` din alte colecții de pe net:
+
+- `ansorre/tens-of-thousands-milkdrop-presets-for-butterchurn` — 15.056 presete
+  MilkDrop convertite în formatul lui butterchurn;
+- `butterchurn-presets@2.4.7`, pachetele **Extra2** și **MD1** — încă două pachete
+  oficiale (MIT) din exact același npm din care pagina lua base+extra, doar că
+  nedocumentate în README-ul lor, deci practic nefolosite de nimeni.
+
+Alegerea nu se face din text — un `.milk` poate fi la fel de bine o linie fină pe
+negru sau un ecran plin de vopsea, iar diferența se vede abia rulat. Fiecare
+candidat e **randat cu motorul lui**, în Chromium headless, cu exact același semnal
+audio, și notat pe ce a ieșit pe pânză: nu e negru, nu e înghețat, nu umple cadrul,
+și **lasă centrul liber** (luminanța din discul central față de inelul din jur) —
+adică fix criteriul de ordonare de mai sus, măsurat în loc de ghicit.
+
+Pachetul mai conține și cele zece presete fixate în `FORMULAS`, scoase din
+pachetele oficiale: așa pagina nu mai descarcă 1,5 MB de presete ca să folosească
+nouă din ele.
+
 ## Note tehnice
 
 - Microfonul cere **https** și un gest al utilizatorului. Pe `file://` Chrome nu

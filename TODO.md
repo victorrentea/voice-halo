@@ -78,6 +78,10 @@ repo-uri curate și împinse. Deciziile lui Victor din ultima rundă:
       foaia de sprite-uri nu se mai poate regenera.
 - [ ] Galeria de 122 de efecte MilkDrop din `~/workspace/milkdrop-gallery` — de
       adăugat ca pagină separată?
+- [ ] **Presetele noi de răsfoit** (`halo-presets.js`) sunt doar în pagină. Dacă
+      vrei vreunul și în aplicație, el trebuie fixat în `FORMULAS` cu numele lui,
+      ca celelalte — ruta nativă projectM nu-l poate lua, fiindcă majoritatea
+      nu există ca `.milk` în colecțiile clonate local (doar 47 din 700 aveau).
 
 ## Livrate
 
@@ -89,6 +93,8 @@ repo-uri curate și împinse. Deciziile lui Victor din ultima rundă:
 - ✅ Benzi de spectru cu prag de zgomot, tavan lent și răspuns compresiv
 - ✅ Presetele alese rulate **cu motorul lor**, identice cu originalul
 - ✅ Mod MilkDrop cu 103 presete, swipe stânga/dreapta
+- ✅ Presete NOI la răsfoire: cele 103 ies din listă (rămân doar cele fixate în
+  `FORMULAS`), în loc vine `halo-presets.js` — ales prin randare, cu `./build-presets.py`
 - ✅ Toggle-uri jos: fundal IDE, MilkDrop, plimbare, ascunde barele, cursor
 - ✅ Cursor macOS în centru, care merge cu efectul la plimbare
 - ✅ Nume englezești scurte + marcaje ★ • −
