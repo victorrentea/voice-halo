@@ -1035,6 +1035,16 @@ const FORMULAS = [
   { name: '− Lagoon', desc: 'apă — comete oglindite în apa de jos', water: true },
   // stratul de comete al lui Water Dream: presetul dă apa, acesta cometele (comets.js)
   { name: '− Comets', desc: 'cometele din Lagoon, oglindite în apa presetului de dedesubt', comets: true },
+
+  // ── alese la răsfoire ──────────────────────────────────────────────────────
+  // Presete pe care le-ai oprit cu degetul în modul MilkDrop și le-ai vrut la
+  // îndemână. Se adaugă AICI, la coada listei, cu ★ în nume, ca să se vadă dintr-o
+  // privire care sunt. `scale: 1` fiindcă exact așa le-ai văzut când le-ai ales:
+  // răsfoirea randează pe toată fereastra. Nu sunt în pachetele oficiale, ci în
+  // `halo-presets.js`, de unde ./build-presets.py le scoate din lista de răsfoit
+  // tocmai fiindcă sunt aici.
+  { name: '★ Gyro', desc: 'MilkDrop 14 — beta106i, GN@tack.ed', preset: 'beta106i - GN@tack.ed', scale: 1 },
+  { name: '★ Smoke', desc: 'MilkDrop 58 — bdrv et.AL Aderrasi, Blender rmx', preset: 'bdrv et.AL Aderrasi - Blender rmx', scale: 1 },
 ];
 
 
@@ -1149,6 +1159,7 @@ function drawWater(t) {
 // Ce se răsfoiește sunt presetele din `halo-presets.js`: alese de ./build-presets.py
 // din alte colecții de pe net, niciunul dintre cele 103 pe care le-ai văzut deja.
 let viz = null, mdOn = false, mdNames = [], mdPresets = null, mdIdx = 0, pinned = null;
+let mdFloodFrom = Infinity;      // de la indexul ăsta încolo, presetele umplu ecranul
 const mdCanvas = document.getElementById('md');
 const mdBtn = document.getElementById('mdBtn');
 
@@ -1228,9 +1239,13 @@ async function mdEnable(bootOnly) {
 
     if (window.haloPresets) {
       mdPresets = window.haloPresets;
-      // `haloBrowse` = doar presetele de răsfoit; `haloPresets` le mai conține și
-      // pe cele fixate în FORMULAS, care nu au ce căuta în listă
+      // `haloBrowse` = presetele de răsfoit; `haloPresets` le mai conține și pe cele
+      // fixate în FORMULAS. Cele alese NU se scot din listă, deși au deja numele lor
+      // în meniu: numerotarea e felul în care îmi spui care ți-a plăcut („milkdrop
+      // 58"), și dacă lista se scurtează sub tine, numărul ăla arată mâine alt efect.
+      // Deci rămân pe loc și se văd ca alese, după ★ din etichetă.
       mdNames = window.haloBrowse || Object.keys(mdPresets);
+      if (window.haloFloodFrom != null) mdFloodFrom = window.haloFloodFrom;
     } else {
       // Plasă de siguranță: dacă pachetul lipsește (o copie veche vendorizată în
       // aplicație), modul MilkDrop merge ca înainte, pe pachetele oficiale.
@@ -1263,12 +1278,15 @@ function mdLoad(i) {
   // De la `haloFloodFrom` încolo sunt presetele care umplu tot ecranul cu vopsea.
   // Le-ai vrut în listă, dar ultimele și îmblânzite, deci primesc aceeași stingere
   // radială ca Tunnel: nu se taie nimic, doar se sting spre margini.
-  const flood = window.haloFloodFrom != null && mdIdx >= window.haloFloodFrom;
+  const flood = mdIdx >= mdFloodFrom;
   mdCanvas.classList.toggle('fade', flood);
   keyCv.classList.toggle('fade', flood);
-  viz.loadPreset(mdPresets[mdNames[mdIdx]], 1.2);
+  const name = mdNames[mdIdx];
+  viz.loadPreset(mdPresets[name], 1.2);
+  // dacă l-ai ales deja, eticheta o spune cu numele lui scurt din meniu
+  const chosen = FORMULAS.find(f => f.preset === name);
   label.textContent = `MilkDrop ${mdIdx + 1}/${mdNames.length}${flood ? ' ▒' : ''}`
-                    + ` — ${mdNames[mdIdx]}`;
+                    + (chosen ? ` ${chosen.name} ` : ' ') + `— ${name}`;
   poke();
 }
 
@@ -1399,7 +1417,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '15:28:05 0466411';
+const BUILD = '15:41:36 402ffde';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {

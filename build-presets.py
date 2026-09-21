@@ -419,17 +419,23 @@ def formulas_entries() -> list[tuple[str, str]]:
     return out
 
 
-def pinned_presets() -> dict:
-    """Presetele fixate în FORMULAS (index.html) — singurele de care mai avem
-    nevoie din pachetele oficiale. Se citesc din pagină, ca să nu rămână în urmă
-    când adaugi sau scoți un efect."""
+def pinned_presets(cands: list[dict]) -> dict:
+    """Presetele fixate în FORMULAS (index.html). Se citesc din pagină, ca să nu
+    rămână în urmă când adaugi sau scoți un efect.
+
+    Ele vin din DOUĂ locuri, și amândouă contează: cele alese la început sunt în
+    pachetele oficiale, iar cele pe care le-ai oprit cu degetul la răsfoire sunt
+    din arhivele mari — deci un preset fixat se caută întâi printre candidații
+    randați și abia apoi în pachetele oficiale. Altfel scriptul cade exact în ziua
+    în care îți place ceva nou."""
     names = list(dict.fromkeys(pr for _, pr in formulas_entries()))
-    official = node_packs(OFFICIAL_BASE + OFFICIAL_NEW)
+    known = {c["name"]: c["p"] for c in cands}
+    known.update(node_packs(OFFICIAL_BASE + OFFICIAL_NEW))
     out, missing = {}, []
     for n in names:
-        (out.setdefault(n, official[n]) if n in official else missing.append(n))
+        (out.setdefault(n, known[n]) if n in known else missing.append(n))
     if missing:
-        sys.exit("presete fixate în index.html care nu există în pachete: " + repr(missing))
+        sys.exit("presete fixate în index.html care nu există nicăieri: " + repr(missing))
     return out
 
 
@@ -457,11 +463,16 @@ def write_pack(rows: list[dict], cands: list[dict], keep: int, keep_flood: int) 
     for g in graded:
         g["score"] = rank.grade(g["f"], target, anti)
 
+    # Presetele fixate în FORMULAS rămân și la răsfoire, pe locul lor: numerotarea
+    # din etichetă e felul în care Victor spune care i-a plăcut, și o listă care se
+    # scurtează sub el face numărul de ieri să arate alt efect. Eticheta le spune pe
+    # nume, deci se văd ca alese fără să se miște nimic.
+    pins = pinned_presets(cands)
+
     subtle = sorted([g for g in graded if not g["flood"]], key=lambda g: -g["score"])[:keep]
     flood = sorted([g for g in graded if g["flood"]], key=lambda g: -g["score"])[:keep_flood]
     ok = subtle + flood          # cele care umplu ecranul: în listă, dar la coadă
 
-    pins = pinned_presets()
     everything = {g["name"]: by_i[g["i"]]["p"] for g in ok}
     everything.update(pins)     # cele fixate în FORMULAS, dar NU la răsfoire
     body = ",\n".join(f"{json.dumps(n)}:{json.dumps(p, separators=(',', ':'))}"
