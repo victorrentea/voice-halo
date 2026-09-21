@@ -1299,7 +1299,15 @@ mdBtn.addEventListener('click', async ev => {
   layout();
 });
 
-// swipe stânga/dreapta ca să tai prin presete
+// Swipe prin presete, pe amândouă axele. Orizontal taie unul câte unul; VERTICAL
+// sare cu cât e de lung gestul — **1, 2 sau cel mult 3**, niciodată mai mult: cu 250
+// de presete în listă, un salt mare te-ar lăsa fără reper unde ai ajuns, iar cu
+// degetul pe ecran nu ai cum să dozezi mai fin de-atât. Pragul e o fracțiune din
+// ÎNĂLȚIMEA ferestrei, nu un număr de pixeli: același gest trebuie să însemne
+// același lucru și pe un telefon mic, și pe unul mare.
+const SWIPE_MIN = 55;            // sub atât e o atingere, nu un gest
+const SWIPE_STEP = 0.22;         // încă un preset la fiecare 22% din înălțime
+const SWIPE_MAX = 3;
 let swipeX = null, swipeY = null;
 addEventListener('touchstart', e => {
   swipeX = e.touches[0].clientX; swipeY = e.touches[0].clientY;
@@ -1308,14 +1316,23 @@ addEventListener('touchend', e => {
   if (swipeX === null || !mdOn) return;
   const dx = e.changedTouches[0].clientX - swipeX;
   const dy = e.changedTouches[0].clientY - swipeY;
-  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) mdLoad(mdIdx + (dx < 0 ? 1 : -1));
+  if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.6) {
+    mdLoad(mdIdx + (dx < 0 ? 1 : -1));
+  } else if (Math.abs(dy) > SWIPE_MIN && Math.abs(dy) > Math.abs(dx) * 1.6) {
+    // în sus = înainte, ca la orice listă trasă cu degetul
+    const n = Math.min(SWIPE_MAX,
+      1 + Math.floor((Math.abs(dy) - SWIPE_MIN) / (innerHeight * SWIPE_STEP)));
+    mdLoad(mdIdx + (dy < 0 ? n : -n));
+  }
   swipeX = null;
 }, { passive: true });
-// pe desktop, aceleași săgeți
+// pe desktop, aceleași săgeți; sus/jos sar câte trei, capătul de sus al gestului
 addEventListener('keydown', e => {
   if (!mdOn) return;
   if (e.key === 'ArrowRight') mdLoad(mdIdx + 1);
   else if (e.key === 'ArrowLeft') mdLoad(mdIdx - 1);
+  else if (e.key === 'ArrowDown') mdLoad(mdIdx + SWIPE_MAX);
+  else if (e.key === 'ArrowUp') mdLoad(mdIdx - SWIPE_MAX);
 });
 
 
@@ -1382,7 +1399,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '15:19:39 3c2b65d';
+const BUILD = '15:28:05 0466411';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
