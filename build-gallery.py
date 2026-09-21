@@ -21,7 +21,7 @@ Iese MP4, nu GIF: aceleași trei secunde ocupă ~20 KB în loc de ~700 KB, iar
 `<video autoplay loop muted playsinline>` se comportă pe telefon exact ca un GIF.
 """
 
-import argparse, functools, http.server, json, os, shutil, socketserver, subprocess, sys, threading
+import argparse, functools, http.server, json, os, re, shutil, socketserver, subprocess, sys, threading
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(ROOT, "galerie")
@@ -116,13 +116,23 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
         print("!! erori în pagină:", errors[:3], file=sys.stderr)
 
     # O rulare parțială (`--only`) trebuie să ÎMBINE, nu să înlocuiască: altfel
-    # regenerarea unui singur efect ștergea restul galeriei din pagină.
+    # regenerarea unui singur efect ștergea restul galeriei din pagină. O rulare
+    # ÎNTREAGĂ e însă lista autoritară: dacă îmbină, un efect scos din FORMULAS
+    # rămâne în galerie pe vecie, cu clipul lui cu tot.
     index = os.path.join(OUT, "lista.json")
-    known = {}
-    if os.path.exists(index):
-        known = {it["n"]: it for it in json.load(open(index))}
-    known.update({it["n"]: it for it in items})
-    items = [known[k] for k in sorted(known)]
+    if only:
+        known = {}
+        if os.path.exists(index):
+            known = {it["n"]: it for it in json.load(open(index))}
+        known.update({it["n"]: it for it in items})
+        items = [known[k] for k in sorted(known)]
+    else:
+        live = {it["n"] for it in items}
+        for f in sorted(os.listdir(OUT)):
+            m = re.fullmatch(r"(\d+)\.(mp4|png)", f)
+            if m and int(m.group(1)) not in live:
+                os.remove(os.path.join(OUT, f))
+                print(f"  (scos din galerie: {f})")
     json.dump(items, open(index, "w"), ensure_ascii=False)
 
     write_page(items)

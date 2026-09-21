@@ -852,6 +852,73 @@ const FORMULAS = [
       // Pătratul care tăia mărgelele din față nu mai există deloc.
       drawOrbits(t, rad(this.scale), 0.5, 1.40, 0.22);
   }},
+  { name: '• Tunnel', desc: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.84 },
+  { name: 'Cauldron', desc: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.525 },
+  // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
+  // presetului rămâne intactă
+  { name: '• Tendrils', desc: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.728 },
+  { name: 'Snowflake', desc: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.69 },
+  { name: '★ Sparks', desc: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.525 },
+  { name: '− Royal', desc: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
+  { name: '− Mosaic', desc: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
+  // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
+  // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
+  { name: '★ Water Dream', desc: 'MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana', scale: 0.5 },
+  { name: 'Beads', desc: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.288, draw(t) {
+      // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
+      // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
+      // Sclipirea rămâne: mărimea blocului respiră chiar și în liniște.
+      fullSize();
+      orbSize(fullW, fullH);
+      const px = Math.round(rad(this.scale) * 2 * dpr);          // vechea latură: scara mărimilor
+      const half = px / 2, M = 132;
+      const cx = (innerWidth / 2 + walkX) * dpr, cy = (innerHeight / 2 + walkY) * dpr;
+      orbSC.setTransform(1, 0, 0, 1, 0, 0);
+      orbSC.clearRect(0, 0, fullW, fullH);
+      orbSC.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < M; k++) {
+        const u = k / M;
+        const th = u * Math.PI * 2 + t * 0.22;
+        const amp = vl(u);                                  // zero în tăcere
+        const r = half * (0.35 + 0.12 * amp);   // diametru 70%
+        const X = cx + Math.cos(th) * r, Y = cy + Math.sin(th) * r;
+        const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
+        // grosime dublă: la raza înjumătățită blocurile subțiri nu se mai întrețeseau
+        // mărgelele nu se ating: la o rază mică cele îngroșate se suprapuneau, deci
+        // mărimea e plafonată la 70% din pasul de pe circumferință (Victor: „să le văd separat")
+        const pitch = 2 * Math.PI * half * 0.35 / M;
+        const size = Math.min(pitch * 0.7, (8.4 + 2.4 * shimmer + 16.0 * Math.min(1, amp * 1.6)) * dpr);
+        // rampa cyan→violet→magenta NU e ciclică, deci la u=1→0 stăteau alăturate
+        // capetele ei (aceeași cusătură ca la Prism). Nuanța urcă și coboară pe
+        // aceeași rampă (dus-întors), deci cercul se închide fără salt (2026-09-20).
+        const phase = (u + t * 0.05) % 1;
+        const hue = 1 - Math.abs(2 * phase - 1);
+        const spr = orbSprites[Math.min(ORB.STEPS - 1, (hue * ORB.STEPS) | 0)];
+        const gm = size * 2.1;
+        orbSC.globalAlpha = 0.18 + 0.27 * amp;
+        orbSC.drawImage(spr.blob, X - gm / 2, Y - gm / 2, gm, gm);
+        orbSC.globalAlpha = 0.55 + 0.45 * Math.min(1, amp * 1.5);
+        orbSC.drawImage(spr.sq, X - size / 2, Y - size / 2, size, size);
+      }
+      orbSC.globalAlpha = 1;
+      orbBloom(0.95, 0.40);
+  }},
+  // ── apa: singurul efect cu pânză proprie ───────────────────────────────────
+  // E o SCENĂ opacă (cer + bazin), nu un halo aditiv, deci nu poate sta pe #full,
+  // care se compune cu `screen`. Codul stă în water.js — 230 de linii inutile aici.
+  { name: '★ Smoke', desc: 'MilkDrop 58 — bdrv et.AL Aderrasi, Blender rmx', preset: 'bdrv et.AL Aderrasi - Blender rmx', scale: 1 },
+  { name: '★ Dusk', desc: 'MilkDrop 57 — Ootje, Battle of the sexes', preset: 'Ootje - Battle of the sexes', scale: 1 },
+  // „Eclipse" era deja luat de un efect propriu, deci coroana asta se numește Corona
+  { name: '• Sigil', desc: 'MilkDrop 213 — martin, shifter (armorial bearings of robotopia)', preset: 'martin - shifter - armorial bearings of robotopia', fade: true, scale: 1 },
+];
+
+// ── scoase din listă, 21 sep 2026 ─────────────────────────────────────────────
+// Nu ți-au plăcut, sau nu le alesesei tu: numerele din etichetă se deplasaseră,
+// fiindcă pachetul de presete rămăsese în cache-ul telefonului în urma paginii.
+// Codul rămâne aici, nu se șterge — nimic nu citește `RETIRED`, deci nu apar
+// nicăieri, dar un efect propriu ca Gemini, lucrat zile în șir, nu se aruncă
+// pentru că azi a ieșit din listă.
+const RETIRED = [
   { name: 'Gemini', desc: 'două bile — ceață suflată din contur spre exterior', scale: 0.1818, draw(t) {
       const R = rad(this.scale);
       // Din film: două bile diametral opuse care se rotesc lent în jurul centrului,
@@ -976,62 +1043,8 @@ const FORMULAS = [
   // `fade`: inelele vin peste privitor și, la mărime de ecran, albeau tot. Acum se
   // sting spre margine (plin în centru, ~50% la jumătate, ~10% la marginea
   // ecranului) — merg tot până afară, doar că nu mai orbesc.
-  { name: '• Tunnel', desc: 'MilkDrop 7 — Geiss, 3 layers (Tunnel Mix)', preset: 'Geiss - 3 layers (Tunnel Mix)', fade: true, scale: 0.84 },
-  { name: 'Cauldron', desc: 'MilkDrop 8 — Geiss, Cauldron painterly 2', preset: 'Geiss - Cauldron - painterly 2 (saturation remix)', scale: 0.525 },
-  // cu 30% mai mic, la cerere: `scale` micșorează doar pânza pe ecran, compoziția
-  // presetului rămâne intactă
-  { name: '• Tendrils', desc: 'MilkDrop 20 — Aderrasi, Painterly Tendrils', preset: 'Aderrasi + Geiss - Airhandler (Kali Mix) - Painterly Tendrils Colorfast', scale: 0.728 },
   { name: '− Silk', desc: 'MilkDrop 44 — Flexi, truly soft piece of software', preset: 'Flexi - truly soft piece of software - this is generic texturing (Jelly) ', scale: 0.5 },
   { name: '− Nova', desc: 'MilkDrop 77 — ORB, Waaa', preset: 'ORB - Waaa', scale: 0.5 },
-  { name: 'Snowflake', desc: 'MilkDrop 85 — Zylot, Star Ornament (mic)', preset: 'Zylot - Star Ornament', scale: 0.69 },
-  { name: '★ Sparks', desc: 'MilkDrop 87 — martin, chain breaker', preset: 'martin - chain breaker', scale: 0.525 },
-  { name: '− Royal', desc: 'MilkDrop 97 — Royal Mashup (197), mai mic', preset: '$$$ Royal - Mashup (197)', scale: 0.31 },
-  { name: '− Mosaic', desc: 'MilkDrop 99 — martin, reflections on black tiles', preset: 'martin - reflections on black tiles', scale: 0.5 },
-  // presetul „cu apă" pe care și-l amintea Victor: orizont net la mijloc, cer roz
-  // deasupra, oglindire cu unde dedesubt. E #103 din 103 în lista filtrată.
-  { name: '★ Water Dream', desc: 'MilkDrop 103 — fata morgana (apă cu oglindire)', preset: 'martin [shadow harlequins shape code] - fata morgana', scale: 0.5 },
-  { name: 'Beads', desc: 'inel de blocuri — cerc în repaus, crește doar în afară', scale: 0.288, draw(t) {
-      // în repaus e cerc perfect (amplitudinea vine strict din voce); vocea îl
-      // împinge numai spre exterior, până la aceeași înălțime maximă ca înainte.
-      // Sclipirea rămâne: mărimea blocului respiră chiar și în liniște.
-      fullSize();
-      orbSize(fullW, fullH);
-      const px = Math.round(rad(this.scale) * 2 * dpr);          // vechea latură: scara mărimilor
-      const half = px / 2, M = 132;
-      const cx = (innerWidth / 2 + walkX) * dpr, cy = (innerHeight / 2 + walkY) * dpr;
-      orbSC.setTransform(1, 0, 0, 1, 0, 0);
-      orbSC.clearRect(0, 0, fullW, fullH);
-      orbSC.globalCompositeOperation = 'lighter';
-      for (let k = 0; k < M; k++) {
-        const u = k / M;
-        const th = u * Math.PI * 2 + t * 0.22;
-        const amp = vl(u);                                  // zero în tăcere
-        const r = half * (0.35 + 0.12 * amp);   // diametru 70%
-        const X = cx + Math.cos(th) * r, Y = cy + Math.sin(th) * r;
-        const shimmer = 0.5 + 0.5 * Math.sin(t * 2.1 + u * Math.PI * 12);
-        // grosime dublă: la raza înjumătățită blocurile subțiri nu se mai întrețeseau
-        // mărgelele nu se ating: la o rază mică cele îngroșate se suprapuneau, deci
-        // mărimea e plafonată la 70% din pasul de pe circumferință (Victor: „să le văd separat")
-        const pitch = 2 * Math.PI * half * 0.35 / M;
-        const size = Math.min(pitch * 0.7, (8.4 + 2.4 * shimmer + 16.0 * Math.min(1, amp * 1.6)) * dpr);
-        // rampa cyan→violet→magenta NU e ciclică, deci la u=1→0 stăteau alăturate
-        // capetele ei (aceeași cusătură ca la Prism). Nuanța urcă și coboară pe
-        // aceeași rampă (dus-întors), deci cercul se închide fără salt (2026-09-20).
-        const phase = (u + t * 0.05) % 1;
-        const hue = 1 - Math.abs(2 * phase - 1);
-        const spr = orbSprites[Math.min(ORB.STEPS - 1, (hue * ORB.STEPS) | 0)];
-        const gm = size * 2.1;
-        orbSC.globalAlpha = 0.18 + 0.27 * amp;
-        orbSC.drawImage(spr.blob, X - gm / 2, Y - gm / 2, gm, gm);
-        orbSC.globalAlpha = 0.55 + 0.45 * Math.min(1, amp * 1.5);
-        orbSC.drawImage(spr.sq, X - size / 2, Y - size / 2, size, size);
-      }
-      orbSC.globalAlpha = 1;
-      orbBloom(0.95, 0.40);
-  }},
-  // ── apa: singurul efect cu pânză proprie ───────────────────────────────────
-  // E o SCENĂ opacă (cer + bazin), nu un halo aditiv, deci nu poate sta pe #full,
-  // care se compune cu `screen`. Codul stă în water.js — 230 de linii inutile aici.
   { name: '− Lagoon', desc: 'apă — comete oglindite în apa de jos', water: true },
   // stratul de comete al lui Water Dream: presetul dă apa, acesta cometele (comets.js)
   { name: '− Comets', desc: 'cometele din Lagoon, oglindite în apa presetului de dedesubt', comets: true },
@@ -1044,18 +1057,14 @@ const FORMULAS = [
   // `halo-presets.js`, de unde ./build-presets.py le scoate din lista de răsfoit
   // tocmai fiindcă sunt aici.
   { name: '★ Gyro', desc: 'MilkDrop 14 — beta106i, GN@tack.ed', preset: 'beta106i - GN@tack.ed', scale: 1 },
-  { name: '★ Smoke', desc: 'MilkDrop 58 — bdrv et.AL Aderrasi, Blender rmx', preset: 'bdrv et.AL Aderrasi - Blender rmx', scale: 1 },
   { name: '★ Whirl', desc: 'MilkDrop 30 — Rovastar, Jester\'s Swirl', preset: 'Rovastar - Jester\'s Swirl', scale: 1 },
   { name: '★ Ember', desc: 'MilkDrop 44 — Pithlit, Guilty', preset: 'Pithlit - Guilty', scale: 1 },
-  { name: '★ Dusk', desc: 'MilkDrop 57 — Ootje, Battle of the sexes', preset: 'Ootje - Battle of the sexes', scale: 1 },
-  // „Eclipse" era deja luat de un efect propriu, deci coroana asta se numește Corona
   { name: '★ Corona', desc: 'MilkDrop 92 — Stahlregen, Solar Flare (Eclipse)', preset: 'Stahlregen - Solar Flare (Eclipse)', scale: 1 },
   // același preset pe care l-ai vrut nativ în projectM, aici cu motorul lui
   { name: '★ Bipolar', desc: 'MilkDrop 109 — bipolar 2', preset: 'bipolar 2', scale: 1 },
   // Primul ales din coada listei, dintre cele care umplu ecranul — deci `fade`, ca
   // să arate exact cum l-ai văzut: la răsfoire, de la `haloFloodFrom` încolo pagina
   // pune singură stingerea radială.
-  { name: '★ Sigil', desc: 'MilkDrop 213 — martin, shifter (armorial bearings of robotopia)', preset: 'martin - shifter - armorial bearings of robotopia', fade: true, scale: 1 },
   { name: '★ Veil', desc: 'MilkDrop 173 — nil, Vortex of Vortices', preset: 'nil - Vortex of Vortices', fade: true, scale: 1 },
   { name: '★ Magma', desc: 'MilkDrop 179 — Pithlit, Deep Vent', preset: 'Pithlit - Deep Vent', fade: true, scale: 1 },
   { name: '★ Nebula', desc: 'MilkDrop 233 — beta106i, Trickshot', preset: 'beta106i - Trickshot', fade: true, scale: 1 },
@@ -1435,7 +1444,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '16:36:32 3aac28e';
+const BUILD = '16:42:12 b40f4ef';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 async function checkVersion() {
