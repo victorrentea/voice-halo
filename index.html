@@ -147,6 +147,24 @@
   body.embed #key.md, body.embed #key.full { display: block }
   #key.full { position: fixed; inset: 0; transform: none }
   /* vumetru: o bară per interval de frecvență, grave la stânga, înalte la dreapta */
+  /* Bara de derulare prin presete. Se vede DOAR în modul MilkDrop: în rest nu
+     are prin ce să deruleze, iar un rând mort sub butoane e tot un rând.
+     Zona de după `--mdFlood` e cea a presetelor care umplu ecranul — se vede pe
+     pistă unde încep, ca să știi unde ai ajuns fără să numeri. */
+  #mdSeek { display: none; width: 100%; margin: 6px 0 2px; height: 26px;
+            -webkit-appearance: none; appearance: none; background: transparent }
+  body.md #mdSeek { display: block }
+  body.bare #mdSeek { display: none }
+  #mdSeek::-webkit-slider-runnable-track, #mdSeek::-moz-range-track {
+    height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg,
+      rgba(120,190,255,.55) 0 var(--mdFlood, 100%),
+      rgba(255,255,255,.16) var(--mdFlood, 100%) 100%) }
+  #mdSeek::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px;
+    border-radius: 50%; background: #eaf3ff; border: 0;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.4) }
+  #mdSeek::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: #eaf3ff }
   #bars { display: flex; align-items: flex-end; gap: 2px; width: 100%; height: 46px }
   #bars div { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
               background: linear-gradient(#7fe3ff, #23566f) }
@@ -209,6 +227,7 @@
       <button id="hudBtn">ascunde barele</button>
       <button id="curBtn">ascunde cursorul</button>
     </div>
+    <input id="mdSeek" type="range" min="1" max="1" value="1" step="1">
     <div id="bars"></div>
   </div>
 </div>
@@ -1378,9 +1397,36 @@ async function mdEnable(bootOnly) {
   return true;
 }
 
+// Bara de derulare: cu 250 de presete, ca să ajungi la al 213-lea cu degetul îți
+// trebuie 213 gesturi. Trasul e LIVE pe etichetă (vezi numărul și numele în timp ce
+// muți) dar încarcă presetul abia după 140 ms de stat pe loc — altfel motorul
+// primește două sute de `loadPreset` într-o secundă și pagina moare în drum.
+const mdSeek = document.getElementById('mdSeek');
+let seekTimer = null;
+function mdSeekTo(n, now) {
+  const i = Math.min(mdNames.length, Math.max(1, n | 0)) - 1;
+  const flood = i >= mdFloodFrom;
+  const chosen = FORMULAS.find(f => f.preset === mdNames[i]);
+  label.textContent = `MilkDrop ${i + 1}/${mdNames.length}${flood ? ' ▒' : ''}`
+                    + (chosen ? ` ${chosen.name} ` : ' ') + `— ${mdNames[i]}`;
+  poke();
+  clearTimeout(seekTimer);
+  if (now) mdLoad(i);
+  else seekTimer = setTimeout(() => mdLoad(i), 140);
+}
+mdSeek.addEventListener('input', () => mdSeekTo(+mdSeek.value, false));
+mdSeek.addEventListener('change', () => mdSeekTo(+mdSeek.value, true));
+
 function mdLoad(i) {
   if (!mdNames.length) return;
   mdIdx = (i + mdNames.length) % mdNames.length;
+  if (mdSeek.max !== String(mdNames.length)) {
+    mdSeek.max = String(mdNames.length);
+    // unde încep cele care umplu ecranul, ca fracțiune din pistă
+    document.documentElement.style.setProperty('--mdFlood',
+      (100 * Math.min(1, mdFloodFrom / mdNames.length)).toFixed(1) + '%');
+  }
+  mdSeek.value = String(mdIdx + 1);
   // De la `haloFloodFrom` încolo sunt presetele care umplu tot ecranul cu vopsea.
   // Le-ai vrut în listă, dar ultimele și îmblânzite, deci primesc aceeași stingere
   // radială ca Tunnel: nu se taie nimic, doar se sting spre margini.
@@ -1420,6 +1466,7 @@ mdBtn.addEventListener('click', async ev => {
   }
   mdBtn.classList.toggle('on', mdOn);
   mdCanvas.classList.toggle('hidden', !mdOn);
+  document.body.classList.toggle('md', mdOn);
   layout();
 });
 
@@ -1534,7 +1581,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '19:33:17 bd41a63';
+const BUILD = '04:15:00 528de3c';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
