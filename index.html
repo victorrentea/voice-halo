@@ -73,9 +73,9 @@
   #row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center }
   #mdBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
            background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
-  #mdBtn.on, #walkBtn.on, #hudBtn.on, #curBtn.on { border-color: #3c7fa6; color: #bfe6ff;
+  #mdBtn.on, #walkBtn.on, #curBtn.on { border-color: #3c7fa6; color: #bfe6ff;
                                         background: rgba(20,44,60,.8) }
-  #walkBtn, #hudBtn, #curBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
+  #walkBtn, #curBtn { padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line);
                       background: rgba(10,14,19,.72); color: var(--dim); font: 11px/1 inherit }
   /* „ascunde barele": rămân doar butoanele, ca animația să aibă tot ecranul */
   body.bare #bars, body.bare #label, body.bare #chips { display: none }
@@ -224,7 +224,6 @@
       <button id="mdBtn">MilkDrop</button>
       <button id="walkBtn">plimbare</button>
       <button id="eqBtn">voce: direct</button>
-      <button id="hudBtn">ascunde barele</button>
       <button id="curBtn">ascunde cursorul</button>
     </div>
     <input id="mdSeek" type="range" min="1" max="1" value="1" step="1">
@@ -1567,13 +1566,10 @@ curBtn.addEventListener('click', ev => {
   curBtn.textContent = off ? 'arată cursorul' : 'ascunde cursorul';
 });
 
-const hudBtn = document.getElementById('hudBtn');
-hudBtn.addEventListener('click', ev => {
-  ev.stopPropagation();
-  document.body.classList.toggle('bare');
-  hudBtn.classList.toggle('on', document.body.classList.contains('bare'));
-  hudBtn.textContent = document.body.classList.contains('bare') ? 'arată barele' : 'ascunde barele';
-});
+// Butonul „ascunde barele" a plecat (cerut, 22 sep 2026). Clasa `body.bare` RĂMÂNE:
+// nu ea era de prisos, ci rândul din bara de jos. `build-gallery.py` o pune din JS
+// ca să scoată butoanele din cadru, și fără ea fiecare clip din galerie ar avea o
+// bară de unelte în el.
 
 
 // ── actualizare automată ─────────────────────────────────────────────────────
@@ -1581,7 +1577,7 @@ hudBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:15:00 528de3c';
+const BUILD = '04:17:37 7242f78';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
