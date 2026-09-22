@@ -230,6 +230,7 @@
       <button id="bg">fundal: IDE</button>
       <button id="mdBtn">MilkDrop</button>
       <button id="walkBtn">plimbare</button>
+      <button id="srcBtn">sursă: microfon</button>
       <button id="eqBtn">voce: direct</button>
       <button id="curBtn">ascunde cursorul</button>
     </div>
@@ -275,6 +276,40 @@ const wave = new Float32Array(analyser.fftSize);
 const spec = new Uint8Array(analyser.frequencyBinCount);
 let micOn = false, micSource = null;
 
+// ── sursa: microfonul telefonului sau o înregistrare cu vocea ta ─────────────
+// Un demo la care trebuie să vorbești ca să se miște ceva nu se poate arăta într-o
+// sală de curs, și nici nu se poate compara: microfonul dă alt semnal la fiecare
+// probă. Clipul e 16 s din corpus (21 sep, ora 12:57, „extragem din bază animalele
+// pe categorii…"), 22 kHz mono la 48 kbps. **Nu se aude**: nu e conectat la ieșire,
+// merge doar în analizor și în motor — altfel, cu microfonul pornit, s-ar auzi pe
+// difuzor și ar intra înapoi prin microfon.
+let clipBuf = null, clipNode = null, useClip = false;
+const srcBtn = document.getElementById('srcBtn');
+
+async function startClip() {
+  await actx.resume();
+  if (!clipBuf) {
+    label.textContent = 'se încarcă vocea…';
+    const r = await fetch('voce.mp3');
+    clipBuf = await actx.decodeAudioData(await r.arrayBuffer());
+  }
+  stopClip();
+  clipNode = actx.createBufferSource();
+  clipNode.buffer = clipBuf; clipNode.loop = true; clipNode.start();
+  wireAudio();
+}
+function stopClip() { if (clipNode) { try { clipNode.stop(); } catch (e) {} clipNode.disconnect(); clipNode = null; } }
+
+srcBtn.addEventListener('click', async ev => {
+  ev.stopPropagation();
+  useClip = !useClip;
+  srcBtn.classList.toggle('on', useClip);
+  srcBtn.textContent = useClip ? 'sursă: vocea mea' : 'sursă: microfon';
+  if (useClip) { await startClip(); }
+  else { stopClip(); wireAudio(); }
+  poke();
+});
+
 // ── pregătirea vocii pentru presete ──────────────────────────────────────────
 // Presetele MilkDrop sunt desenate pentru MUZICĂ, iar tu vorbești. Măsurat pe zece
 // înregistrări din corpusul tău, din orele de curs: doar **3,2%** din energia vocii
@@ -298,13 +333,21 @@ let micOn = false, micSource = null;
 const AUDIO_MODES = ['direct', 'normalizat', 'bas', 'spectru', 'tot'];
 let audioMode = 0;
 const voiceOut = actx.createGain();          // TOT ce aude motorul trece pe aici
+voiceOut.connect(analyser);                  // barele arată vocea PREGĂTITĂ, nu cea brută
 const hp = actx.createBiquadFilter();  hp.type = 'highpass'; hp.frequency.value = 70;
 const tiltLo = actx.createBiquadFilter(); tiltLo.type = 'lowshelf';  tiltLo.frequency.value = 170; tiltLo.gain.value = 12;
 const tiltHi = actx.createBiquadFilter(); tiltHi.type = 'highshelf'; tiltHi.frequency.value = 3500; tiltHi.gain.value = 12;
 const comp = actx.createDynamicsCompressor();
 comp.threshold.value = -45; comp.knee.value = 12; comp.ratio.value = 12;
 comp.attack.value = 0.004; comp.release.value = 0.12;
+// Câștigul de după compresor NU e fix. Măsurat pe clipul din pagină, un makeup fix
+// de ×6 scotea `normalizat` la 0,012 RMS acolo unde `direct` dă 0,069 — adică modul
+// al cărui nume promite „aceeași forță" ieșea de cinci ori mai slab decât originalul,
+// fiindcă un compresor cu prag taie 40 dB din vârfuri și ×6 înseamnă 15,6. Deci se
+// duce spre o ȚINTĂ, cadru cu cadru, exact ca în portul nativ (`VoicePrep` din
+// walkie-talkie), unde aceeași greșeală a ieșit la aceeași măsurătoare.
 const makeup = actx.createGain(); makeup.gain.value = 6;
+const TARGET_RMS = 0.10;
 // subul: un sinus care nu se aude ca ton, se simte ca lovitură
 const sub = actx.createOscillator(); sub.type = 'sine'; sub.frequency.value = 68;
 const subGain = actx.createGain(); subGain.gain.value = 0;
@@ -314,13 +357,15 @@ const envA = actx.createAnalyser(); envA.fftSize = 512;
 const envBuf = new Float32Array(envA.fftSize);
 
 function wireAudio() {
-  for (const n of [micSource, hp, tiltLo, tiltHi, comp, makeup, subGain]) { try { n && n.disconnect(); } catch (e) {} }
-  if (!micSource) return;
-  micSource.connect(envA);
+  for (const n of [micSource, clipNode, hp, tiltLo, tiltHi, comp, makeup, subGain]) { try { n && n.disconnect(); } catch (e) {} }
+  // sursa curentă: clipul dacă e pornit, altfel microfonul
+  const src = useClip ? clipNode : micSource;
+  if (!src) return;
+  src.connect(envA);
   const m = AUDIO_MODES[audioMode];
-  if (m === 'direct') { micSource.connect(voiceOut); }
+  if (m === 'direct') { src.connect(voiceOut); }
   else {
-    micSource.connect(hp);
+    src.connect(hp);
     let tail = hp;
     if (m === 'spectru' || m === 'tot') { tail.connect(tiltLo); tiltLo.connect(tiltHi); tail = tiltHi; }
     tail.connect(comp); comp.connect(makeup); makeup.connect(voiceOut);
@@ -333,7 +378,17 @@ function wireAudio() {
 let envLevel = 0;
 function driveSub() {
   const m = AUDIO_MODES[audioMode];
-  if (!micSource || (m !== 'bas' && m !== 'tot')) { subGain.gain.value = 0; return; }
+  // AGC: câștigul urcă încet și coboară repede spre ținta de RMS, pe semnalul BRUT
+  if (m !== 'direct' && (useClip ? clipNode : micSource)) {
+    envA.getFloatTimeDomainData(envBuf);
+    let q = 0; for (let i = 0; i < envBuf.length; i++) q += envBuf[i] * envBuf[i];
+    const rms = Math.sqrt(q / envBuf.length);
+    const want = rms < 0.0015 ? 1 : Math.min(24, Math.max(0.5, TARGET_RMS / rms));
+    const g = makeup.gain.value;
+    makeup.gain.setTargetAtTime(want < g ? g + (want - g) * 0.35 : g + (want - g) * 0.06,
+                                actx.currentTime, 0.02);
+  }
+  if (!(useClip ? clipNode : micSource) || (m !== 'bas' && m !== 'tot')) { subGain.gain.value = 0; return; }
   envA.getFloatTimeDomainData(envBuf);
   let s = 0; for (let i = 0; i < envBuf.length; i++) s += envBuf[i] * envBuf[i];
   const rms = Math.sqrt(s / envBuf.length);
@@ -1396,7 +1451,7 @@ async function mdEnable(bootOnly) {
     viz = (butterchurn.default || butterchurn).createVisualizer(actx, mdCanvas,
             { width: mdCanvas.width, height: mdCanvas.height, pixelRatio: 1 });
     viz.setRendererSize(mdCanvas.width, mdCanvas.height);
-    if (micSource) viz.connectAudio(voiceOut);
+    if (micSource || clipNode) viz.connectAudio(voiceOut);
   }
   if (!bootOnly) mdLoad(mdIdx);
   return true;
@@ -1584,7 +1639,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:19:43 f330331';
+const BUILD = '04:23:23 927a4fc';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
