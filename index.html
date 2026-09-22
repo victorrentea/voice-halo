@@ -1068,6 +1068,11 @@ const FORMULAS = [
   { name: '★ Dusk', desc: 'MilkDrop 57 — Ootje, Battle of the sexes', preset: 'Ootje - Battle of the sexes', scale: 1 },
   // „Eclipse" era deja luat de un efect propriu, deci coroana asta se numește Corona
   { name: '• Sigil', desc: 'MilkDrop 213 — martin, shifter (armorial bearings of robotopia)', preset: 'martin - shifter - armorial bearings of robotopia', fade: true, scale: 1 },
+  // Reintrat pe 22 sep: la revizie ieșise („nu arată cum trebuia"), dar era exact
+  // efectul pe care îl vedeai când ai zis „58 like" — pachetul se schimbase sub tine.
+  // Îl pun înapoi cu numele lui de atunci, ca să nu inventez un al doilea nume.
+  { name: '★ Magma', desc: 'MilkDrop 179 — Pithlit, Deep Vent', preset: 'Pithlit - Deep Vent', fade: true, scale: 1 },
+  { name: '★ Spiro', desc: 'MilkDrop 91 — Aderrasi, Sounds Blue', preset: 'Aderrasi - Sounds Blue', scale: 1 },
 ];
 
 // ── scoase din listă, 21 sep 2026 ─────────────────────────────────────────────
@@ -1224,7 +1229,6 @@ const RETIRED = [
   // să arate exact cum l-ai văzut: la răsfoire, de la `haloFloodFrom` încolo pagina
   // pune singură stingerea radială.
   { name: '★ Veil', desc: 'MilkDrop 173 — nil, Vortex of Vortices', preset: 'nil - Vortex of Vortices', fade: true, scale: 1 },
-  { name: '★ Magma', desc: 'MilkDrop 179 — Pithlit, Deep Vent', preset: 'Pithlit - Deep Vent', fade: true, scale: 1 },
   { name: '★ Nebula', desc: 'MilkDrop 233 — beta106i, Trickshot', preset: 'beta106i - Trickshot', fade: true, scale: 1 },
 ];
 
@@ -1639,7 +1643,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:23:23 927a4fc';
+const BUILD = '04:30:46 e39680b';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
