@@ -120,8 +120,9 @@ vorbirea continuă n-are pauzele unui mouse).
   acoperă ecranul în ambele direcții, deci nu i se vede marginea, dar păstrează
   raportul presetului (întinsă pe ecran de telefon, orice cerc devenea elipsă).
 - Butonul **mișcare: off | auto | manual** mută centrul tuturor efectelor: `auto`
-  e plimbarea lentă de dinainte, `manual` îl tragi cu degetul (sau mouse-ul) de
-  oriunde de pe ecran — relativ, ca degetul să nu acopere punctul. Modul se ține
+  e plimbarea lentă de dinainte, iar în `manual` pe desktop punctul urmează
+  mouse-ul fără clic (săgeata desenată ține locul celei reale), iar pe telefon îl
+  tragi cu degetul de oriunde de pe ecran — relativ, ca degetul să nu acopere punctul. Modul se ține
   minte în browser. În `manual` swipe-ul prin presete e oprit, ca degetul să
   aibă un singur înțeles; swipe-ul cu două degete pentru voce rămâne.
 - Barele de jos arată spectrul (grave la stânga), ca să vezi imediat când intră vocea.

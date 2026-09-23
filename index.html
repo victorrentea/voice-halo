@@ -131,6 +131,10 @@
             transform: var(--walk, translate(0px, 0px));
             width: calc(var(--hud) * 1.55); filter: drop-shadow(0 1px 2px rgba(0,0,0,.65)) }
   body.nocursor #cursor { display: none }
+  /* manual pe desktop: săgeata desenată E mouse-ul, deci cea reală se ascunde
+     (nu și peste butoane, unde punctul nu urmează mouse-ul) */
+  body.manual { cursor: none }
+  body.manual button, body.manual input, body.manual select { cursor: default }
   /* ── modul „embed" (`?embed=1`): pagina găzduită de Walkie Talkie într-un
      WKWebView transparent, peste desktop, cu centrul pe mouse-ul REAL. Nu se
      vede nimic din interfață: nici pastile, nici butoane, nici bare, nici
@@ -1611,8 +1615,9 @@ addEventListener('keydown', e => {
 // Trei moduri, din același buton (cerut 23 sep 2026):
 //   off    — centrul stă în mijlocul ecranului
 //   auto   — plimbarea de mai jos, singură
-//   manual — tragi punctul cu degetul (sau mouse-ul), de ORIUNDE de pe ecran:
-//            mișcarea e relativă, ca degetul să nu acopere tocmai punctul
+//   manual — pe desktop punctul URMEAZĂ mouse-ul, fără clic (e chiar mouse-ul);
+//            pe telefon n-ai hover, deci tragi cu degetul de ORIUNDE de pe
+//            ecran, relativ, ca degetul să nu acopere tocmai punctul
 const MOVE_MODES = ['off', 'auto', 'manual'];
 let moveMode = 'off';
 try { if (MOVE_MODES.includes(localStorage.moveMode)) moveMode = localStorage.moveMode; } catch (e) {}
@@ -1624,6 +1629,8 @@ function showMoveMode() {
   walkBtn.classList.toggle('on', moveMode !== 'off');
   // în manual, tragerea nu trebuie să deruleze sau să zoom-eze pagina pe telefon
   document.body.style.touchAction = moveMode === 'manual' ? 'none' : '';
+  // cursorul desenat stă chiar sub cel real: două săgeți una peste alta ar fi zgomot
+  document.body.classList.toggle('manual', moveMode === 'manual');
 }
 walkBtn.addEventListener('click', ev => {
   ev.stopPropagation();
@@ -1640,10 +1647,18 @@ showMoveMode();
 // sau pe bara de derulare rămâne al lor. NU `closest('#ui')`: #ui e cât ecranul
 // (inset: 0), deci ar fi înghițit orice atingere și punctul n-ar fi plecat niciodată.
 addEventListener('pointerdown', e => {
-  if (moveMode !== 'manual' || EMBED || e.target.closest('button, input, select, a')) return;
+  if (moveMode !== 'manual' || EMBED || e.pointerType === 'mouse'
+      || e.target.closest('button, input, select, a')) return;
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY, mx: manX, my: manY };
 });
 addEventListener('pointermove', e => {
+  // mouse: fără clic, punctul e pur și simplu unde e mouse-ul. Peste butoane nu:
+  // altfel, ca să apeși „mișcare", halo-ul ar fugi după tine în bara de jos.
+  if (e.pointerType === 'mouse') {
+    if (moveMode !== 'manual' || EMBED || e.target.closest('button, input, select, a')) return;
+    manX = e.clientX - innerWidth / 2; manY = e.clientY - innerHeight / 2;
+    return;
+  }
   if (!drag || e.pointerId !== drag.id) return;
   const hw = innerWidth / 2, hh = innerHeight / 2;
   manX = Math.max(-hw, Math.min(hw, drag.mx + e.clientX - drag.x));
@@ -1706,7 +1721,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '05:01:41 f3a94e0';
+const BUILD = '05:48:27 c8bea00';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
