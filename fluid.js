@@ -740,6 +740,10 @@ function generateColor(h, k) {
 }
 
 // ── vocea în loc de pointer ─────────────────────────────────────────────────
+// FĂRĂ `dtF` aici: simularea avansează cel mult 1/60 s pe cadru (ca în original),
+// deci și injecția e per PAS de simulare, nu per timp real. Înmulțită cu dtF, la
+// 20 fps intra de 3× mai mult dye pe pas, cu aceeași stingere — telefonul încărcat
+// și capturile galeriei ieșeau albe.
 // Pentru fiecare emițător: un „pointer" virtual care stă pe cercul de rază
 // `ringPx` în jurul cursorului și, cât îi sună banda, se mișcă spre exterior cu
 // PUSH_PX·e pixeli pe cadru. De acolo încolo e codul lui splatPointer():
@@ -760,11 +764,11 @@ function voiceSplats(t, energyAt, level, cx, cy, ringPx, dtF, w, h) {
     if (e <= 0) continue;
     const cs = Math.cos(a), sn = Math.sin(a);
     const px = cx + cs * ringPx, py = cy + sn * ringPx;
-    const m = PUSH_PX * e * dtF;
+    const m = PUSH_PX * e;
     const mx = (cs - sn * SWIRL) * m, my = (sn + cs * SWIRL) * m;
     const dx = correctDeltaX(mx / w) * config.SPLAT_FORCE;
     const dy = correctDeltaY(-my / h) * config.SPLAT_FORCE;
-    splat(px / w, 1 - py / h, dx, dy, generateColor(hue + k / EMITTERS * 0.12, Math.min(1, e * 1.6) * DYE_SHARE * dtF));
+    splat(px / w, 1 - py / h, dx, dy, generateColor(hue + k / EMITTERS * 0.12, Math.min(1, e * 1.6) * DYE_SHARE));
   }
 }
 

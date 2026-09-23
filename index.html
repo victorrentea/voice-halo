@@ -234,7 +234,7 @@
       <button id="mic">🎙 pornește microfonul</button>
       <button id="bg">fundal: IDE</button>
       <button id="mdBtn">MilkDrop</button>
-      <button id="walkBtn">plimbare</button>
+      <button id="walkBtn">mișcare: off</button>
       <button id="srcBtn">sursă: microfon</button>
       <button id="eqBtn">voce: direct</button>
       <button id="curBtn">ascunde cursorul</button>
@@ -1578,7 +1578,7 @@ addEventListener('touchend', e => {
     label.textContent = 'voce: ' + AUDIO_MODES[audioMode];
     poke(); swipeX = null; return;
   }
-  if (!mdOn) return;
+  if (!mdOn || moveMode === 'manual') { swipeX = null; return; }   // în manual, degetul trage punctul
   const dx = gx, dy = gy;
   if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy) * 1.6) {
     mdLoad(mdIdx + (dx < 0 ? 1 : -1));
@@ -1602,14 +1602,48 @@ addEventListener('keydown', e => {
 
 // ── plimbarea: halo-ul rătăcește lent pe ecran, ca să se vadă urma din spate ──
 // Traseu Lissajous cu perioade incomensurabile, deci nu se repetă vizibil.
-let walk = false;
+// Trei moduri, din același buton (cerut 23 sep 2026):
+//   off    — centrul stă în mijlocul ecranului
+//   auto   — plimbarea de mai jos, singură
+//   manual — tragi punctul cu degetul (sau mouse-ul), de ORIUNDE de pe ecran:
+//            mișcarea e relativă, ca degetul să nu acopere tocmai punctul
+const MOVE_MODES = ['off', 'auto', 'manual'];
+let moveMode = 'off';
+try { if (MOVE_MODES.includes(localStorage.moveMode)) moveMode = localStorage.moveMode; } catch (e) {}
+let manX = 0, manY = 0, drag = null;
 const cursorEl = document.getElementById('cursor');
 const walkBtn = document.getElementById('walkBtn');
+function showMoveMode() {
+  walkBtn.textContent = 'mișcare: ' + moveMode;
+  walkBtn.classList.toggle('on', moveMode !== 'off');
+  // în manual, tragerea nu trebuie să deruleze sau să zoom-eze pagina pe telefon
+  document.body.style.touchAction = moveMode === 'manual' ? 'none' : '';
+}
 walkBtn.addEventListener('click', ev => {
   ev.stopPropagation();
-  walk = !walk;
-  walkBtn.classList.toggle('on', walk);
+  // auto → manual pornește din punctul în care era plimbarea, nu sare în mijloc
+  if (moveMode === 'auto') { manX = walkX; manY = walkY; }
+  moveMode = MOVE_MODES[(MOVE_MODES.indexOf(moveMode) + 1) % MOVE_MODES.length];
+  try { localStorage.moveMode = moveMode; } catch (e) {}
+  showMoveMode();
+  label.textContent = 'mișcare: ' + moveMode + (moveMode === 'manual' ? ' — trage cu degetul oriunde' : '');
+  poke();
 });
+showMoveMode();
+// Tragerea: pointer events acoperă și degetul, și mouse-ul. Ce începe pe un buton
+// sau pe bara de derulare rămâne al lor. NU `closest('#ui')`: #ui e cât ecranul
+// (inset: 0), deci ar fi înghițit orice atingere și punctul n-ar fi plecat niciodată.
+addEventListener('pointerdown', e => {
+  if (moveMode !== 'manual' || EMBED || e.target.closest('button, input, select, a')) return;
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, mx: manX, my: manY };
+});
+addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const hw = innerWidth / 2, hh = innerHeight / 2;
+  manX = Math.max(-hw, Math.min(hw, drag.mx + e.clientX - drag.x));
+  manY = Math.max(-hh, Math.min(hh, drag.my + e.clientY - drag.y));
+});
+for (const k of ['pointerup', 'pointercancel']) addEventListener(k, e => { if (drag && e.pointerId === drag.id) drag = null; });
 // Plimbarea se calculează O SINGURĂ DATĂ pe cadru și ajunge în TOATE straturile:
 //   · efectele proprii și apa o primesc ca deplasare a originii de desen;
 //   · cursorul și pânza MilkDrop o primesc prin variabila CSS `--walk`.
@@ -1628,7 +1662,13 @@ function walkStep(t) {
       `translate(${walkX.toFixed(1)}px,${walkY.toFixed(1)}px)`);
     return;
   }
-  if (!walk) {
+  if (moveMode === 'manual') {
+    walkX = manX; walkY = manY;
+    document.documentElement.style.setProperty('--walk',
+      `translate(${walkX.toFixed(1)}px,${walkY.toFixed(1)}px)`);
+    return;
+  }
+  if (moveMode !== 'auto') {
     walkX = walkY = 0;
     document.documentElement.style.setProperty('--walk', 'translate(0px, 0px)');
     return;
@@ -1660,7 +1700,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:45:59 04679f2';
+const BUILD = '04:52:54 3808871';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
