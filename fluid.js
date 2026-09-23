@@ -19,6 +19,8 @@
      `splat(x, y, dx, dy, color)`, cu aceleași corecții de aspect ca la pointer.
      O mică componentă tangențială răsucește jetul, ca vorticity-ul să aibă ce
      amplifica; în liniște nu se emite nimic și fluidul se stinge singur.
+     Mișcarea centrului rămâne și ea stimul, cu splatPointer()-ul original,
+     doar atenuat (MOVE_FORCE, MOVE_DYE): vocea e mai intensă decât mișcarea.
    · CULOAREA: generateColor() e tot HSV(h, 1, 1) × 0.15, dar nuanța nu mai e
      aleatoare la fiecare mișcare, ci curge continuu în timp, aceeași pentru toți
      emițătorii — aleatoare ar pâlpâi la fiecare cadru, că „mișcarea" nu se
@@ -65,6 +67,14 @@ const GATE = 0.04;        // sub atât, banda tace: nu se emite nimic
 // în două secunde (măsurat: la DENSITY_DISSIPATION 1 echilibrul e de ~12× mai sus).
 // Deci fiecare primește doar partea lui: împreună, cât un singur mouse tras.
 const DYE_SHARE = 0.08 / EMITTERS;
+// ── și mișcarea, ca în original, dar mai slab decât vocea ────────────────────
+// Când centrul se mută (mouse-ul real în Walkie Talkie, „plimbarea" în pagină),
+// se face exact splatPointer() din original: un splat în punctul curent, cu delta
+// mișcării × SPLAT_FORCE. Doar atenuat: o fracțiune din forță și din culoare, ca
+// vocea să rămână stimulul principal, iar o mișcare fără voce să lase doar o dâră.
+const MOVE_FORCE = 0.35;  // din SPLAT_FORCE
+const MOVE_DYE = 0.06;    // din culoarea HSV×0.15 a pointerului original
+const MOVE_JUMP = 250;    // px: peste atât nu e mișcare, e salt (ex. mouse pe alt ecran)
 
 let gl = null, ext = null, cv = null, ready = false, failed = false;
 let programs, blit, dye, velocity, divergence, curl, pressure, bloom, bloomFramebuffers = [],
@@ -758,8 +768,19 @@ function voiceSplats(t, energyAt, level, cx, cy, ringPx, dtF, w, h) {
   }
 }
 
+function motionSplat(t, cx, cy, w, h) {
+  if (prevCx === null) { prevCx = cx; prevCy = cy; return; }
+  const mx = cx - prevCx, my = cy - prevCy;
+  prevCx = cx; prevCy = cy;
+  const d = Math.hypot(mx, my);
+  if (d < 0.5 || d > MOVE_JUMP) return;
+  const dx = correctDeltaX(mx / w) * config.SPLAT_FORCE * MOVE_FORCE;
+  const dy = correctDeltaY(-my / h) * config.SPLAT_FORCE * MOVE_FORCE;
+  splat(cx / w, 1 - cy / h, dx, dy, generateColor(t * 0.12, MOVE_DYE));
+}
+
 // ─────────────────────────────── API ───────────────────────────────
-let lastT = null;
+let lastT = null, prevCx = null, prevCy = null;
 function draw(canvas, t, energyAt, level, cx, cy, ringPx, dpr, dtF) {
   if (failed) return;
   if (!ready) { init(canvas); if (failed) return; }
@@ -767,12 +788,13 @@ function draw(canvas, t, energyAt, level, cx, cy, ringPx, dpr, dtF) {
   // dt ca în original: timpul real, plafonat la 1/60 s
   const dt = lastT === null ? 1 / 60 : Math.min(Math.max(0, t - lastT), 0.016666);
   lastT = t;
+  motionSplat(t, cx, cy, innerWidth, innerHeight);
   voiceSplats(t, energyAt, level, cx, cy, ringPx, dtF, innerWidth, innerHeight);
   step(dt);
   render(cx / innerWidth, 1 - cy / innerHeight);
 }
 function reset() {
-  lastT = null;
+  lastT = null; prevCx = prevCy = null;
   if (!ready) return;
   initFramebuffers();
 }

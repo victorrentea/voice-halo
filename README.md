@@ -70,9 +70,14 @@ Schimbat e doar **stimulul**. La el, splat-urile vin din mișcarea mouse-ului
 (poziția + delta × `SPLAT_FORCE`). Aici vin din **voce**: 12 emițători pe un cerc
 mic în jurul cursorului, fiecare un „pointer" virtual care, cât se vorbește, se
 mișcă spre exterior cu viteza dată de nivelul vocii, cu o mică răsucire
-tangențială ca vorticity-ul să aibă ce amplifica. În liniște nu se emite nimic
-și fluidul se stinge singur. Razele sunrays pleacă de la cursor, nu din mijlocul
-ecranului.
+tangențială ca vorticity-ul să aibă ce amplifica. În liniște vocea nu mai emite
+nimic și fluidul se stinge singur. Razele sunrays pleacă de la cursor, nu din
+mijlocul ecranului.
+
+Mișcarea rămâne și ea stimul, cu `splatPointer()`-ul lui neschimbat: când centrul
+se mută (mouse-ul real în Walkie Talkie, „plimbarea" în pagină), fluidul primește
+impulsul mișcării. Doar că e atenuat (`MOVE_FORCE` 0.35 din forță, `MOVE_DYE` 0.06
+din culoare): mișcarea fără voce lasă o dâră discretă, vocea e cea care îl umple.
 
 Două reglaje au fost necesare, fiindcă un emițător care stă pe loc nu e un
 mouse: „mișcarea" unui emițător e de doar 3 px pe cadru la voce plină (la 16 px
