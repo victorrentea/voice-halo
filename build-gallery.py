@@ -68,7 +68,7 @@ def build(seconds: float, fps: int, only: list[str], keep_marked: bool) -> None:
                       "document.getElementById('cursor').style.display = 'none'")
 
         meta = page.evaluate("FORMULAS.map(f => ({name: f.name, desc: f.desc || '',"
-                             " preset: !!f.preset, scene: !!f.water}))")
+                             " preset: !!f.preset, scene: !!(f.water || f.fluid)}))")
         for i, m in enumerate(meta):
             name = m["name"]
             bare = name.lstrip("★•− ").strip()

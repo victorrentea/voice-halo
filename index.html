@@ -86,6 +86,9 @@
   /* apa își desenează propriul cer și propriul bazin, deci e o SCENĂ opacă, nu un
      halo: fără `screen`, altfel fundalul paginii ar transpărea prin apă */
   #water { position: fixed; inset: 0; z-index: 1; pointer-events: none }
+  /* fluidul (fluid.js) desenează pe negru opac, ca #md: `screen` lasă negrul să
+     dispară peste fundal și lumina să rămână lumină */
+  #fluid { position: fixed; inset: 0; z-index: 1; pointer-events: none; mix-blend-mode: screen }
   .hidden { display: none !important }
   /* MilkDrop: și la răsfoire, și la presetul fixat — o pânză PĂTRATĂ cu latura
      max(lățime, înălțime), centrată. E „cover", nu „fit": acoperă ecranul în
@@ -213,10 +216,12 @@
 </svg>
 <canvas id="full" class="hidden"></canvas>
 <canvas id="water" class="hidden"></canvas>
+<canvas id="fluid" class="hidden"></canvas>
 <canvas id="md" class="hidden"></canvas>
 <canvas id="key"></canvas>
 <script src="water.js"></script>
 <script src="comets.js"></script>
+<script src="fluid.js"></script>
 
 <div id="ui">
   <div id="chips"></div>
@@ -1072,6 +1077,10 @@ const FORMULAS = [
   // Îl pun înapoi cu numele lui de atunci, ca să nu inventez un al doilea nume.
   { name: '★ Magma', desc: 'MilkDrop 179 — Pithlit, Deep Vent', preset: 'Pithlit - Deep Vent', fade: true, scale: 1 },
   { name: '★ Spiro', desc: 'MilkDrop 91 — Aderrasi, Sounds Blue', preset: 'Aderrasi - Sounds Blue', scale: 1 },
+  // Simulatorul lui Pavel Dobryakov (WebGL Fluid Simulation), cu fizica lui
+  // neatinsă, dar cu vocea în loc de mouse: fluid.js. `scale` = raza cercului de
+  // emițători din jurul cursorului.
+  { name: 'Fluid', desc: 'WebGL Fluid (Pavel Dobryakov) — împins de voce din jurul cursorului', fluid: true, scale: 0.035 },
 ];
 
 // ── scoase din listă, 21 sep 2026 ─────────────────────────────────────────────
@@ -1328,6 +1337,13 @@ function drawComets(t) {
   fullSize();
   fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fullW, fullH);
   cometsScene.draw(full, fctx, t, levelNow, bass, treble, innerWidth / 2 + walkX, innerHeight / 2 + walkY, dpr);
+}
+// ── fluidul: pânză WebGL proprie, stimulul e vocea (fluid.js) ────────────────
+const fluidCv = document.getElementById('fluid');
+function drawFluid(t) {
+  if (!window.fluidScene) return;
+  fluidScene.draw(fluidCv, t, eAt, levelNow, innerWidth / 2 + walkX, innerHeight / 2 + walkY,
+                  rad(FORMULAS[fIdx].scale), dpr, dtF);
 }
 function drawWater(t) {
   if (!window.waterScene) return;
@@ -1644,7 +1660,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:35:42 47533d3';
+const BUILD = '04:41:17 abb4f51';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.
@@ -1707,6 +1723,7 @@ function pick(i) {
   post({ event: 'picked', index: i, name: F.name, ok: true });
 }
 function clearTrail() {                    // fără urme de la formula (sau propoziția) veche
+  if (window.fluidScene) fluidScene.reset();
   for (const f of fbuf) f.x.clearRect(0, 0, f.c.width, f.c.height);
   fctx.setTransform(1, 0, 0, 1, 0, 0);
   fctx.clearRect(0, 0, fullW, fullH);
@@ -1890,8 +1907,9 @@ function frame(now) {
   if (!EMBED) drawBars();
   const F = FORMULAS[fIdx];
   const md = mdOn || pinned;
-  full.classList.toggle('hidden', md || !!F.preset || !!F.water);
+  full.classList.toggle('hidden', md || !!F.preset || !!F.water || !!F.fluid);
   waterCv.classList.toggle('hidden', md || !F.water);
+  fluidCv.classList.toggle('hidden', md || !F.fluid);
   if (md && viz) {
     // în embed motorul n-are microfon conectat: primește aceleași eșantioane ca
     // octeții pe care i-ar fi produs analizorul lui (ultimele 1024 ale ferestrei)
@@ -1907,6 +1925,9 @@ function frame(now) {
   } else if (F.water) {
     drawWater(t);
     if (EMBED) keyPass('full', waterCv);
+  } else if (F.fluid) {
+    drawFluid(t);
+    if (EMBED) keyPass('full', fluidCv);
   } else {
     F.draw(t);                 // fiecare efect își ia singur stratul (tunnel / plain)
     if (EMBED) keyPass('', null);
@@ -1920,6 +1941,7 @@ if (EMBED) {
   // de mai sus le-au găsit): desenate în continuare, dar niciodată compuse
   mdCanvas.remove();
   waterCv.remove();
+  fluidCv.remove();
   const webgl = keySetup();
   window.halo = {
     pick(i) { pick(i); return FORMULAS[i] ? FORMULAS[i].name : 'no such effect: ' + i; },

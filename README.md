@@ -57,6 +57,29 @@ Pachetul mai conține și cele zece presete fixate în `FORMULAS`, scoase din
 pachetele oficiale: așa pagina nu mai descarcă 1,5 MB de presete ca să folosească
 nouă din ele.
 
+## 20 — Fluid
+
+Simulatorul lui Pavel Dobryakov,
+[WebGL-Fluid-Simulation](https://github.com/PavelDoGreat/WebGL-Fluid-Simulation)
+(MIT), portat în `fluid.js` cu fizica lui neatinsă: aceleași shadere (advecție,
+curl + vorticity confinement, Jacobi pe presiune, scăderea gradientului, splat
+gaussian), aceeași ordine a pașilor și aceleași constante, plus display-ul lui
+cu shading, bloom și sunrays.
+
+Schimbat e doar **stimulul**. La el, splat-urile vin din mișcarea mouse-ului
+(poziția + delta × `SPLAT_FORCE`). Aici vin din **voce**: 12 emițători pe un cerc
+mic în jurul cursorului, fiecare un „pointer" virtual care, cât se vorbește, se
+mișcă spre exterior cu viteza dată de nivelul vocii, cu o mică răsucire
+tangențială ca vorticity-ul să aibă ce amplifica. În liniște nu se emite nimic
+și fluidul se stinge singur. Razele sunrays pleacă de la cursor, nu din mijlocul
+ecranului.
+
+Două reglaje au fost necesare, fiindcă un emițător care stă pe loc nu e un
+mouse: „mișcarea" unui emițător e de doar 3 px pe cadru la voce plină (la 16 px
+viteza se aduna în același punct și se lovea de plafonul de ±1000 din shader), iar culoarea e împărțită între
+emițători și mult redusă (sunrays-ul amplifică de ~8× orice dye slab, iar
+vorbirea continuă n-are pauzele unui mouse).
+
 ## Note tehnice
 
 - Microfonul cere **https** și un gest al utilizatorului. Pe `file://` Chrome nu
