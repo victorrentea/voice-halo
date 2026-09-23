@@ -1080,7 +1080,13 @@ const FORMULAS = [
   // Simulatorul lui Pavel Dobryakov (WebGL Fluid Simulation), cu fizica lui
   // neatinsă, dar cu vocea în loc de mouse: fluid.js. `scale` = raza cercului de
   // emițători din jurul cursorului.
-  { name: 'Fluid', desc: 'WebGL Fluid (Pavel Dobryakov) — vocea îl împinge din jurul cursorului, mișcarea doar lasă dâră', fluid: true, scale: 0.035 },
+  { name: 'Fluid', desc: 'WebGL Fluid (Pavel Dobryakov) — vocea îl împinge din jurul cursorului, mișcarea doar lasă dâră', fluid: 'ring', scale: 0.035 },
+  // Aceeași fizică, alt fel în care vocea mișcă fluidul (MODES din fluid.js)
+  { name: 'Geyser', desc: 'fluid — un jet în sus: volumul e înălțimea, tonul îl înclină', fluid: 'geyser', scale: 0.035 },
+  { name: 'Syllables', desc: 'fluid — fiecare silabă aruncă un inel, în tăcere nimic', fluid: 'burst', scale: 0.035 },
+  { name: 'Compass', desc: 'fluid — tonul vocii dă direcția: grav stânga, ascuțit dreapta', fluid: 'compass', scale: 0.035 },
+  { name: 'Organ', desc: 'fluid — spectrul pe orizontală, fiecare bandă suflă în sus', fluid: 'organ', scale: 0.035 },
+  { name: 'Breath', desc: 'fluid — vorbești: se umflă; taci: se strânge înapoi la cursor', fluid: 'breath', scale: 0.035 },
 ];
 
 // ── scoase din listă, 21 sep 2026 ─────────────────────────────────────────────
@@ -1343,7 +1349,7 @@ const fluidCv = document.getElementById('fluid');
 function drawFluid(t) {
   if (!window.fluidScene) return;
   fluidScene.draw(fluidCv, t, eAt, levelNow, innerWidth / 2 + walkX, innerHeight / 2 + walkY,
-                  rad(FORMULAS[fIdx].scale), dpr, dtF);
+                  rad(FORMULAS[fIdx].scale), dpr, FORMULAS[fIdx].fluid);
 }
 function drawWater(t) {
   if (!window.waterScene) return;
@@ -1700,7 +1706,7 @@ curBtn.addEventListener('click', ev => {
 // minute pe versiunea veche fără să dea vreun semn — asta, nu deploy-ul, e ce
 // pare „lent". Pagina își verifică singură amprenta într-un fișier de câțiva
 // octeți, cerut cu no-store, și se reîncarcă singură când s-a publicat altceva.
-const BUILD = '04:52:54 3808871';
+const BUILD = '05:01:41 f3a94e0';
 const verEl = document.getElementById('ver');
 verEl.textContent = 'v ' + BUILD;
 // Reperul e PRIMA valoare citită după încărcare, NU constanta din pagină.

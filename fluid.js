@@ -19,6 +19,8 @@
      `splat(x, y, dx, dy, color)`, cu aceleași corecții de aspect ca la pointer.
      O mică componentă tangențială răsucește jetul, ca vorticity-ul să aibă ce
      amplifica; în liniște nu se emite nimic și fluidul se stinge singur.
+     Asta e varianta `ring` (20); MODES are încă cinci feluri în care vocea
+     mișcă fluidul (21–25), toate prin același splatPointer.
      Mișcarea centrului rămâne și ea stimul, cu splatPointer()-ul original,
      doar atenuat (MOVE_FORCE, MOVE_DYE): vocea e mai intensă decât mișcarea.
    · CULOAREA: generateColor() e tot HSV(h, 1, 1) × 0.15, dar nuanța nu mai e
@@ -60,7 +62,6 @@ if (/Mobi|Android/i.test(navigator.userAgent)) config.DYE_RESOLUTION = 512;   //
 // ── stimulul vocal ──────────────────────────────────────────────────────────
 const EMITTERS = 12;      // puncte pe cercul din jurul cursorului
 const PUSH_PX = 3;        // cât „se mișcă" un emițător pe cadru, la bandă plină (px CSS)
-const SWIRL = 0.35;       // partea tangențială a împingerii, din cea radială
 const GATE = 0.04;        // sub atât, banda tace: nu se emite nimic
 // Un pointer tras varsă HSV×0.15 o dată pe cadru, într-un singur punct. Doisprezece
 // emițători care varsă fiecare atât, tot timpul cât vorbești, albesc tot ecranul
@@ -744,33 +745,110 @@ function generateColor(h, k) {
 // deci și injecția e per PAS de simulare, nu per timp real. Înmulțită cu dtF, la
 // 20 fps intra de 3× mai mult dye pe pas, cu aceeași stingere — telefonul încărcat
 // și capturile galeriei ieșeau albe.
-// Pentru fiecare emițător: un „pointer" virtual care stă pe cercul de rază
-// `ringPx` în jurul cursorului și, cât îi sună banda, se mișcă spre exterior cu
-// PUSH_PX·e pixeli pe cadru. De acolo încolo e codul lui splatPointer():
-// delta în coordonate uv, corectată de aspect, × SPLAT_FORCE.
-function voiceSplats(t, energyAt, level, cx, cy, ringPx, dtF, w, h) {
-  const spin = t * 0.15;                          // cercul de emițători se rotește lent
-  // o singură nuanță la un moment dat, ca pointerul din original (el sare la alta la
-  // fiecare 1/COLOR_UPDATE_SPEED s, aici curge): roata întreagă în ~8 s, deci
-  // culorile ies ca straturi împinse în afară, nu amestecate în gri
-  const hue = t * 0.12;
-  for (let k = 0; k < EMITTERS; k++) {
-    const a = spin + (k / EMITTERS) * Math.PI * 2;
-    // simetric stânga-dreapta: grave sus, înalte jos (ca inelele din pagină)
-    const u = Math.abs(((k / EMITTERS + 0.5) % 1) * 2 - 1);
-    // Mai mult nivel general decât bandă: vocea stă aproape toată în grave, iar cu
-    // banda singură tot fluidul pleca într-o singură parte a cursorului, ca un jet.
-    const e = Math.max(0, level * 0.7 + energyAt(u * 0.85) * 0.35 - GATE);
-    if (e <= 0) continue;
-    const cs = Math.cos(a), sn = Math.sin(a);
-    const px = cx + cs * ringPx, py = cy + sn * ringPx;
-    const m = PUSH_PX * e;
-    const mx = (cs - sn * SWIRL) * m, my = (sn + cs * SWIRL) * m;
-    const dx = correctDeltaX(mx / w) * config.SPLAT_FORCE;
-    const dy = correctDeltaY(-my / h) * config.SPLAT_FORCE;
-    splat(px / w, 1 - py / h, dx, dy, generateColor(hue + k / EMITTERS * 0.12, Math.min(1, e * 1.6) * DYE_SHARE));
-  }
+// Un „pointer" virtual în (px, py) care se mișcă pe cadru cu (mx, my) pixeli —
+// de aici e codul lui splatPointer(): delta în uv, corectată de aspect, × SPLAT_FORCE.
+function push(px, py, mx, my, hue, dyeK, w, h) {
+  const dx = correctDeltaX(mx / w) * config.SPLAT_FORCE;
+  const dy = correctDeltaY(-my / h) * config.SPLAT_FORCE;
+  splat(px / w, 1 - py / h, dx, dy, generateColor(hue, dyeK));
 }
+// Tonul vocii, 0 (grav) … 1 (ascuțit): centroidul benzilor, întins pe domeniul în
+// care stă de fapt vorbirea (centroidul brut al vocii e între ~0.05 și ~0.4).
+function pitchOf(energyAt) {
+  let sw = 0, se = 0;
+  for (let i = 0; i < 24; i++) { const u = i / 23, e = energyAt(u * 0.85); sw += u * e; se += e; }
+  if (se < 0.02) return null;
+  return Math.max(0, Math.min(1, (sw / se - 0.05) / 0.35));
+}
+const TAU = Math.PI * 2;
+let pitchS = 0.5, levelPrev = 0, lastOnset = -1, burstHue = 0;
+
+// ── cele șase feluri în care vocea mișcă fluidul ─────────────────────────────
+// Toate folosesc același push() (adică splatPointer-ul original); diferă doar CE
+// pointer virtual face vocea să se miște, încotro și cât.
+const MODES = {
+  // 20 · inel: 12 emițători în jurul cursorului, împing spre exterior cât vorbești.
+  // Rotirea era 0.15 rad/s plus o răsucire de 0.35 — amețitoare. Acum abia se mișcă.
+  ring(t, energyAt, level, cx, cy, R, w, h) {
+    const spin = t * 0.03, hue = t * 0.12, SW = 0.10;
+    for (let k = 0; k < EMITTERS; k++) {
+      const a = spin + (k / EMITTERS) * TAU;
+      // simetric stânga-dreapta: grave sus, înalte jos (ca inelele din pagină).
+      // Mai mult nivel general decât bandă: vocea stă aproape toată în grave, iar cu
+      // banda singură tot fluidul pleca într-o singură parte a cursorului, ca un jet.
+      const u = Math.abs(((k / EMITTERS + 0.5) % 1) * 2 - 1);
+      const e = Math.max(0, level * 0.7 + energyAt(u * 0.85) * 0.35 - GATE);
+      if (e <= 0) continue;
+      const cs = Math.cos(a), sn = Math.sin(a), m = PUSH_PX * e;
+      push(cx + cs * R, cy + sn * R, (cs - sn * SW) * m, (sn + cs * SW) * m,
+           hue + k / EMITTERS * 0.12, Math.min(1, e * 1.6) * DYE_SHARE, w, h);
+    }
+  },
+  // 21 · gheizer: un singur jet în SUS din cursor. Volumul = înălțimea, tonul îl
+  // înclină: grav spre stânga, ascuțit spre dreapta. Ca o fântână care îți ascultă vocea.
+  geyser(t, energyAt, level, cx, cy, R, w, h) {
+    const p = pitchOf(energyAt);
+    if (p !== null) pitchS += (p - pitchS) * 0.08;
+    const e = Math.max(0, level - GATE);
+    if (e <= 0) return;
+    const a = -Math.PI / 2 + (pitchS - 0.5) * 1.1 + Math.sin(t * 1.3) * 0.08;
+    const m = 7 * e;
+    push(cx, cy, Math.cos(a) * m, Math.sin(a) * m, t * 0.12, Math.min(1, e * 1.6) * 0.08, w, h);
+  },
+  // 22 · silabe: între silabe NIMIC; fiecare atac de silabă (nivelul sare brusc)
+  // aruncă un inel întreg deodată, cu o culoare nouă. Ritmul vorbirii se vede ca
+  // valuri concentrice, câte unul pe silabă.
+  burst(t, energyAt, level, cx, cy, R, w, h) {
+    const rise = level - levelPrev;
+    levelPrev = level;
+    if (rise < 0.06 || level < 0.12 || t - lastOnset < 0.12) return;
+    lastOnset = t;
+    burstHue = (burstHue + 0.17 + Math.random() * 0.1) % 1;
+    const N = 20, m = 10 + 40 * Math.min(1, rise * 4), rot = Math.random() * TAU;
+    for (let k = 0; k < N; k++) {
+      const a = rot + (k / N) * TAU, cs = Math.cos(a), sn = Math.sin(a);
+      push(cx + cs * R, cy + sn * R, cs * m, sn * m, burstHue, 0.75 / N, w, h);
+    }
+  },
+  // 23 · busolă: UN pointer care se rotește în jurul cursorului, iar unghiul lui e
+  // TONUL vocii — grav = stânga, ascuțit = dreapta, prin sus. Intonația desenează.
+  compass(t, energyAt, level, cx, cy, R, w, h) {
+    const p = pitchOf(energyAt);
+    if (p !== null) pitchS += (p - pitchS) * 0.12;
+    const e = Math.max(0, level - GATE);
+    if (e <= 0) return;
+    const a = Math.PI + pitchS * Math.PI, cs = Math.cos(a), sn = Math.sin(a), m = 6 * e;
+    push(cx + cs * R * 1.5, cy + sn * R * 1.5, cs * m, sn * m, 0.55 + pitchS * 0.45, Math.min(1, e * 1.6) * 0.08, w, h);
+  },
+  // 24 · orgă: spectrul pe orizontală, prin cursor — grave în stânga, înalte în
+  // dreapta — fiecare bandă un tub care suflă în sus cât sună. Un egalizator de fum.
+  organ(t, energyAt, level, cx, cy, R, w, h) {
+    const N = 9, span = R * 16;
+    for (let k = 0; k < N; k++) {
+      const u = k / (N - 1);
+      const e = Math.max(0, energyAt(Math.pow(u, 1.4) * 0.85) * 0.8 + level * 0.25 - GATE);
+      if (e <= 0) continue;
+      const m = 7 * e;
+      push(cx + (u - 0.5) * span, cy, 0, -m, 0.62 - u * 0.62 + t * 0.02, Math.min(1, e * 1.6) * 0.3 / N, w, h);
+    }
+  },
+  // 25 · respirație: vorbești = expiră (inelul împinge afară și varsă culoare);
+  // taci = inspiră (același inel TRAGE înapoi spre cursor, fără culoare nouă).
+  // Fumul se umflă pe fraze și se strânge la loc în pauze.
+  breath(t, energyAt, level, cx, cy, R, w, h) {
+    const N = 12, Rb = R * 2.2, hue = t * 0.06;
+    const out = level > 0.1;
+    const m = out ? 7 * level : -2.2 * (1 - level / 0.1);
+    for (let k = 0; k < N; k++) {
+      const a = (k / N) * TAU + 0.26, cs = Math.cos(a), sn = Math.sin(a);
+      // emițătorii vecini alunecă în sensuri opuse (±): pur radial, fumul ieșea o
+      // pată moale, fără niciun vârtej — forfecarea e ce dă vorticity-ului de lucru
+      const tg = (k % 2 ? 0.45 : -0.45) * Math.abs(m);
+      push(cx + cs * Rb, cy + sn * Rb, cs * m - sn * tg, sn * m + cs * tg, hue + k / N * 0.08,
+           out ? Math.min(1, level * 1.6) * 0.25 / N : 0, w, h);
+    }
+  },
+};
 
 function motionSplat(t, cx, cy, w, h) {
   if (prevCx === null) { prevCx = cx; prevCy = cy; return; }
@@ -785,7 +863,7 @@ function motionSplat(t, cx, cy, w, h) {
 
 // ─────────────────────────────── API ───────────────────────────────
 let lastT = null, prevCx = null, prevCy = null;
-function draw(canvas, t, energyAt, level, cx, cy, ringPx, dpr, dtF) {
+function draw(canvas, t, energyAt, level, cx, cy, ringPx, dpr, mode) {
   if (failed) return;
   if (!ready) { init(canvas); if (failed) return; }
   resize(innerWidth, innerHeight, dpr);
@@ -793,15 +871,15 @@ function draw(canvas, t, energyAt, level, cx, cy, ringPx, dpr, dtF) {
   const dt = lastT === null ? 1 / 60 : Math.min(Math.max(0, t - lastT), 0.016666);
   lastT = t;
   motionSplat(t, cx, cy, innerWidth, innerHeight);
-  voiceSplats(t, energyAt, level, cx, cy, ringPx, dtF, innerWidth, innerHeight);
+  (MODES[mode] || MODES.ring)(t, energyAt, level, cx, cy, ringPx, innerWidth, innerHeight);
   step(dt);
   render(cx / innerWidth, 1 - cy / innerHeight);
 }
 function reset() {
-  lastT = null; prevCx = prevCy = null;
+  lastT = null; prevCx = prevCy = null; levelPrev = 0; lastOnset = -1;
   if (!ready) return;
   initFramebuffers();
 }
 
-window.fluidScene = { draw, reset, config };
+window.fluidScene = { draw, reset, config, modes: Object.keys(MODES) };
 })();

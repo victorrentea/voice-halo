@@ -74,6 +74,23 @@ tangențială ca vorticity-ul să aibă ce amplifica. În liniște vocea nu mai 
 nimic și fluidul se stinge singur. Razele sunrays pleacă de la cursor, nu din
 mijlocul ecranului.
 
+### 21–25 — aceeași fizică, alt fel de a mișca fluidul cu vocea
+
+Toate trec prin același `splatPointer()`; diferă doar ce pointer virtual mișcă
+vocea, încotro și cât (`MODES` în `fluid.js`):
+
+| # | nume | ce face vocea |
+|---|---|---|
+| 20 | Fluid | inel de 12 emițători care împing spre exterior; rotirea e acum lentă (0.03 rad/s, era 0.15 + răsucire 0.35 — amețitoare) |
+| 21 | Geyser | un singur jet în sus: volumul e înălțimea, tonul îl înclină (grav stânga, ascuțit dreapta) |
+| 22 | Syllables | în tăcere nimic; fiecare atac de silabă aruncă un inel întreg, cu culoare nouă |
+| 23 | Compass | un pointer care se rotește în jurul cursorului; unghiul e tonul vocii |
+| 24 | Organ | spectrul pe orizontală prin cursor, fiecare bandă un tub care suflă în sus |
+| 25 | Breath | vorbești: se umflă și varsă culoare; taci: același inel trage fumul înapoi |
+
+Tonul e centroidul benzilor, întins pe domeniul vorbirii (centroidul brut al
+vocii stă între ~0.05 și ~0.4) și netezit, ca direcția să nu tremure.
+
 Mișcarea rămâne și ea stimul, cu `splatPointer()`-ul lui neschimbat: când centrul
 se mută (mouse-ul real în Walkie Talkie, „plimbarea" în pagină), fluidul primește
 impulsul mișcării. Doar că e atenuat (`MOVE_FORCE` 0.35 din forță, `MOVE_DYE` 0.06
